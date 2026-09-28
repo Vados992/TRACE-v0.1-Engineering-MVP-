@@ -1,0 +1,41 @@
+name: TRACE Docker Smoke
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: trace-docker-smoke-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  docker-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      TRACE_TEST_LEI: "529900T8BM49AURSDO55"
+      TRACE_API_URL: "http://127.0.0.1:8000"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Prepare environment
+        run: cp .env.example .env
+
+      - name: Run end-to-end Docker smoke test
+        run: bash scripts/docker_smoke.sh
+
+      - name: Show Docker state on failure
+        if: failure()
+        run: |
+          docker compose ps -a || true
+          docker compose logs --no-color --tail=300 || true
+
+      - name: Tear down
+        if: always()
+        run: docker compose down -v --remove-orphans || true

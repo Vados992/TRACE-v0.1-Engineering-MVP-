@@ -229,3 +229,29 @@ A graph edge means only that a defined relationship is supported by the cited so
 ## Current limits
 
 v0.3 is still an engineering MVP. A production public service still requires authentication/RBAC, WAF/rate limiting, staff MFA, DPIA/data-subject workflows, production observability, backup/restore, signed containers/SBOM, source-license review, robust official Transparency Register export automation, broader national registries, and integration tests against live services and container infrastructure.
+
+
+## Docker end-to-end smoke test
+
+TRACE includes a separate GitHub Actions workflow at `.github/workflows/docker-smoke.yml`.
+
+It validates a clean deployment rather than only Python imports:
+
+1. starts PostgreSQL, MinIO, Neo4j, OpenSearch and Redis;
+2. applies all SQL migrations;
+3. starts the FastAPI service and verifies `/health`;
+4. performs a live GLEIF ingestion for a real LEI;
+5. verifies immutable raw evidence and the canonical LEI in PostgreSQL;
+6. links the ingested entity to a deterministic verified smoke-test relationship;
+7. calls `POST /api/v1/graph/path` and requires a verified path;
+8. calls `GET /api/v1/relationships/{id}/why` and requires provenance;
+9. rechecks all infrastructure services.
+
+Run the same test on a Docker-capable developer machine:
+
+```bash
+cp .env.example .env
+bash scripts/docker_smoke.sh
+```
+
+The live external ingestion is retried, but an unavailable or incompatible upstream GLEIF API still causes the smoke test to fail intentionally: an end-to-end test should detect that the real integration is unavailable.
