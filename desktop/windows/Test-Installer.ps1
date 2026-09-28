@@ -17,7 +17,9 @@ try {
     if ($envText -notmatch 'POSTGRES_PASSWORD=[a-f0-9]{48}' -or $envText -match 'trace_dev_only') { throw 'Secrets were not generated.' }
     $shell=New-Object -ComObject WScript.Shell
     $link=$shell.CreateShortcut((Join-Path $shortcuts 'TRACE.lnk'))
-    if ($link.WorkingDirectory -ne $destination -or $link.Arguments -notlike '*Start.ps1*') { throw 'Shortcut invalid.' }
+    $expectedDirectory = [IO.Path]::GetFullPath($destination).TrimEnd('\')
+    $actualDirectory = [IO.Path]::GetFullPath([Environment]::ExpandEnvironmentVariables($link.WorkingDirectory)).TrimEnd('\')
+    if ($actualDirectory -ne $expectedDirectory -or $link.Arguments -notlike '*Start.ps1*') { throw "Shortcut invalid: $actualDirectory; expected $expectedDirectory" }
     $blocked=$false
     try { & "$PSScriptRoot\Install.ps1" -Destination $destination -ShortcutDirectory $shortcuts -SkipStart }
     catch { $blocked=$true }

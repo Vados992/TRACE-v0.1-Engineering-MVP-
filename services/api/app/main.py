@@ -8,6 +8,8 @@ from fastapi.responses import JSONResponse, RedirectResponse
 import httpx
 from .connectors.base import ConnectorError
 from .system_status import readiness, CONNECTORS
+from starlette.middleware.trustedhost import TrustedHostMiddleware
+from urllib.parse import urlsplit
 
 from .connectors.eurlex import EurLexConnector
 from .connectors.gleif import GleifConnector
@@ -53,6 +55,19 @@ app = FastAPI(
     summary="Provenance-first public-interest relationship explorer",
     lifespan=lifespan,
 )
+
+if settings.trace_env == "desktop":
+    app.add_middleware(TrustedHostMiddleware, allowed_hosts=["localhost", "127.0.0.1", "[::1]"])
+
+
+@app.middleware("http")
+async def desktop_origin_guard(request, call_next):
+    origin = request.headers.get("origin")
+    if settings.trace_env == "desktop" and origin and request.method not in {"GET", "HEAD", "OPTIONS"}:
+        parsed = urlsplit(origin)
+        if parsed.netloc != request.headers.get("host") or parsed.scheme != request.url.scheme:
+            return JSONResponse(status_code=403, content={"detail": "Cross-origin write rejected"})
+    return await call_next(request)
 
 static_dir = Path(__file__).resolve().parents[1] / "static"
 if static_dir.exists():
