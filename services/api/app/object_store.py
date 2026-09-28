@@ -1,6 +1,9 @@
 from dataclasses import dataclass
 from io import BytesIO
 import hashlib
+import os
+from pathlib import Path
+import tempfile
 
 from minio import Minio
 from minio.error import S3Error
@@ -18,6 +21,12 @@ class StoredArtifact:
 
 class EvidenceStore:
     def __init__(self) -> None:
+        self.backend = settings.evidence_backend
+        self.directory = Path(settings.evidence_directory)
+        if self.backend == "filesystem":
+            self.client = None
+            self.bucket = "local"
+            return
         self.client = Minio(
             settings.minio_endpoint,
             access_key=settings.minio_access_key,
@@ -27,8 +36,41 @@ class EvidenceStore:
         self.bucket = settings.minio_bucket
 
     def ensure_bucket(self) -> None:
+        if self.backend == "filesystem":
+            self.directory.mkdir(parents=True, exist_ok=True)
+            return
         if not self.client.bucket_exists(self.bucket):
             self.client.make_bucket(self.bucket)
+
+    def _path(self, key: str) -> Path:
+        path = (self.directory / key).resolve()
+        if not path.is_relative_to(self.directory.resolve()):
+            raise ValueError("invalid evidence key")
+        return path
+
+    def get_bytes(self, object_key: str, expected_hash: str | None = None) -> bytes:
+        if self.backend == "filesystem":
+            payload = self._path(object_key).read_bytes()
+        else:
+            response = self.client.get_object(self.bucket, object_key)
+            try:
+                payload = response.read()
+            finally:
+                response.close()
+                response.release_conn()
+        if expected_hash and hashlib.sha256(payload).hexdigest() != expected_hash:
+            raise ValueError("evidence hash mismatch")
+        return payload
+
+    def check(self) -> None:
+        self.ensure_bucket()
+        if self.backend == "filesystem":
+            with tempfile.TemporaryFile(dir=self.directory) as probe:
+                probe.write(b"trace-readiness")
+                probe.flush()
+                os.fsync(probe.fileno())
+        else:
+            self.client.bucket_exists(self.bucket)
 
     def put_bytes(
         self,
@@ -41,8 +83,33 @@ class EvidenceStore:
         safe_external = "".join(
             c if c.isalnum() or c in "._-" else "_" for c in external_id
         )[:180]
-        key = f"{source_code.lower()}/{digest[:2]}/{safe_external}/{digest}"
+        safe_source = "".join(c for c in source_code.lower() if c.isalnum() or c == "_")
+        if not safe_source:
+            raise ValueError("invalid source code")
+        key = f"{safe_source}/{digest[:2]}/{safe_external}/{digest}"
         self.ensure_bucket()
+        if self.backend == "filesystem":
+            path = self._path(key)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            fd, temporary = tempfile.mkstemp(dir=path.parent, prefix=".write-")
+            try:
+                with os.fdopen(fd, "wb") as stream:
+                    stream.write(payload)
+                    stream.flush()
+                    os.fsync(stream.fileno())
+                try:
+                    os.link(temporary, path)
+                except FileExistsError:
+                    self.get_bytes(key, digest)
+                if os.name == "posix":
+                    directory_fd = os.open(path.parent, os.O_RDONLY)
+                    try:
+                        os.fsync(directory_fd)
+                    finally:
+                        os.close(directory_fd)
+            finally:
+                Path(temporary).unlink(missing_ok=True)
+            return StoredArtifact(key, digest, len(payload), media_type)
         try:
             self.client.stat_object(self.bucket, key)
         except S3Error as exc:
@@ -63,4 +130,6 @@ class EvidenceStore:
         )
 
     def uri(self, object_key: str) -> str:
+        if self.backend == "filesystem":
+            return f"trace-evidence://local/{object_key}"
         return f"s3://{self.bucket}/{object_key}"

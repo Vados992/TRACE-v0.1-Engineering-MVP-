@@ -1,0 +1,30 @@
+name: TRACE Desktop Validation
+on:
+  push:
+    branches: [main, codex/trace-desktop-app]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  windows-installer:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate Windows installer and shortcut
+        shell: powershell
+        run: ./desktop/windows/Test-Installer.ps1
+  desktop-stack:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test real connectors, databases, UI, Path Finder, and persistence
+        run: bash scripts/desktop_smoke.sh
+      - name: Preserve evidence of checks
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-test-reports
+          path: logs/*.json

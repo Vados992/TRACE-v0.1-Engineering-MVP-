@@ -1,75 +1,30 @@
 <!doctype html>
-<html lang="en">
+<html lang="ru">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>TRACE v0.3 Investigation Console</title>
-  <style>
-    body { font-family: system-ui, sans-serif; max-width: 1100px; margin: 2rem auto; padding: 0 1rem; }
-    input, button { padding: .65rem; margin: .25rem 0; }
-    input { width: 100%; box-sizing: border-box; }
-    button { cursor: pointer; }
-    pre { white-space: pre-wrap; background: #f4f4f4; padding: 1rem; border-radius: 8px; overflow: auto; }
-    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
-    .note { font-size: .9rem; opacity: .75; }
-    @media (max-width: 700px) { .grid { grid-template-columns: 1fr; } }
-  </style>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark"><title>TRACE · Evidence Explorer</title>
+<link rel="stylesheet" href="/ui/style.css"><script src="/ui/app.js" defer></script>
 </head>
 <body>
-  <h1>TRACE v0.3</h1>
-  <p>Evidence-first investigation console. A displayed connection is not a claim of causation or wrongdoing.</p>
-
-  <h2>Search canonical entities</h2>
-  <input id="search" placeholder="Company, institution, policy...">
-  <button onclick="searchEntities()">Search</button>
-  <pre id="searchOut">[]</pre>
-
-
-  <h2>Reconciliation status</h2>
-  <button onclick="reconciliationSummary()">Refresh reconciliation summary</button>
-  <pre id="reconciliationOut">{}</pre>
-
-  <h2>Find documented paths</h2>
-  <div class="grid">
-    <div><label>Source entity UUID</label><input id="sourceId"></div>
-    <div><label>Target entity UUID</label><input id="targetId"></div>
-  </div>
-  <button onclick="investigate()">Run investigation</button>
-  <p class="note">The current UI expects canonical entity UUIDs returned by search/ingestion.</p>
-  <pre id="investigationOut">{}</pre>
-
-<script>
-const api = "/api/v1";
-
-async function searchEntities() {
-  const q = document.getElementById("search").value;
-  const response = await fetch(`${api}/entities/search?q=${encodeURIComponent(q)}`);
-  document.getElementById("searchOut").textContent =
-    JSON.stringify(await response.json(), null, 2);
-}
-
-async function reconciliationSummary() {
-  const response = await fetch(`${api}/reconciliation/summary`);
-  document.getElementById("reconciliationOut").textContent =
-    JSON.stringify(await response.json(), null, 2);
-}
-
-async function investigate() {
-  const payload = {
-    source_entity_id: document.getElementById("sourceId").value,
-    target_entity_id: document.getElementById("targetId").value,
-    max_depth: 6,
-    limit: 10,
-    verified_only: true
-  };
-  const response = await fetch(`${api}/investigations`, {
-    method: "POST",
-    headers: {"content-type": "application/json"},
-    body: JSON.stringify(payload)
-  });
-  document.getElementById("investigationOut").textContent =
-    JSON.stringify(await response.json(), null, 2);
-}
-</script>
-</body>
-</html>
+<aside><a class="brand" href="/ui/"><span class="brandmark">T</span>TRACE</a><span class="eyebrow">EVIDENCE EXPLORER</span>
+<nav><a href="#overview">01 <span>Обзор</span></a><a href="#sources">02 <span>Источники</span></a><a href="#entities">03 <span>Организации</span></a><a href="#paths">04 <span>Связи и доказательства</span></a></nav>
+<div class="aside-note"><span class="dot"></span> PRIVATE WORKSPACE<p>v0.3 · Desktop edition</p><a href="/docs" target="_blank" rel="noreferrer">Документация API ↗</a></div></aside>
+<main>
+<header id="overview"><div><div class="eyebrow">TRANSPARENT RELATIONSHIP & ALLOCATION CHAIN EXPLORER</div><h1>От источника к <em>доказательству.</em></h1><p class="muted">Исследуйте документированные связи организаций, закупок и правовых актов.</p></div><button id="refresh" class="secondary">Обновить статус ↻</button></header>
+<div class="notice">Связь в графе отражает сведения источника. Она сама по себе не доказывает причинность, вину или конфликт интересов.</div>
+<section class="metrics" aria-label="Сводка"><div><span>Канонические соответствия</span><strong id="mappings">—</strong></div><div><span>Наблюдения связей</span><strong id="observations">—</strong></div><div><span>Требуют сверки</span><strong id="conflicts">—</strong></div><div><span>Состояние ядра</span><strong class="small" id="core">Проверка…</strong></div></section>
+<details class="service-details"><summary>Базы данных и хранилище <span id="service-summary"></span></summary><div id="services" class="services"></div><p class="muted">PostgreSQL — основная база и Path Finder. Neo4j — дополнительная проекция. Redis и OpenSearch запущены как инфраструктура; фоновой очереди и поискового индекса в v0.3 ещё нет.</p></details>
+<section id="sources"><div class="section-heading"><div><div class="eyebrow">01 / LIVE SOURCES</div><h2>Подключённые источники</h2></div><span class="muted">Запросы выполняются при загрузке</span></div>
+<div class="source-grid">
+<form id="gleif-form" class="card"><div class="card-top"><span class="tag">GLEIF</span><span class="muted">01</span></div><h3>Структура организаций</h3><p>LEI и бухгалтерские консолидирующие материнские организации.</p><label for="lei">Идентификатор LEI</label><input id="lei" value="529900T8BM49AURSDO55" pattern="[A-Za-z0-9]{20}" required maxlength="20"><button>Загрузить связи ↗</button><small>Бухгалтерское родительство не означает бенефициарное владение.</small></form>
+<form id="ted-form" class="card"><div class="card-top"><span class="tag">TED</span><span class="muted">02</span></div><h3>Государственные закупки</h3><p>Заказчики, победители и явно указанные суммы присуждения.</p><label for="ted-query">Запрос TED</label><input id="ted-query" value="publication-date >= 20260901" required><label for="ted-limit">Количество извещений</label><select id="ted-limit"><option>5</option><option>10</option><option>25</option></select><button>Загрузить закупки ↗</button></form>
+<form id="eurlex-form" class="card"><div class="card-top"><span class="tag">EUR-LEX / CELLAR</span><span class="muted">03</span></div><h3>Правовые акты</h3><p>Ссылки, изменения и другие явные отношения между документами.</p><label for="celex">Номер CELEX</label><input id="celex" value="32016R0679" required pattern="[A-Za-z0-9()_-]{4,60}"><button>Загрузить документ ↗</button><small>Неизвестные отношения источника не достраиваются догадками.</small></form>
+</div>
+<details class="import-panel"><summary>Реестр прозрачности ЕС · импорт официальной выгрузки</summary><p>Автоматической синхронизации реестра пока нет. Выберите JSON с полем <code>records</code> по схеме <a href="/docs#/default/build_lobbying_api_v1_relationship_intelligence_lobbying_import_post">LobbyingImportRequest</a>. Не загружайте искусственные примеры в рабочую базу.</p><form id="lobby-form"><input id="lobby-file" type="file" accept=".json,application/json" required><button>Импортировать JSON</button></form></details>
+<div id="source-result" class="result" aria-live="polite" hidden></div>
+</section>
+<section id="entities"><div class="section-heading"><div><div class="eyebrow">02 / CANONICAL ENTITIES</div><h2>Найти организацию или документ</h2></div></div><form id="search-form" class="searchbar"><input id="search" aria-label="Название" placeholder="Название организации, учреждения или документа…" required><button>Найти</button></form><div id="search-results" aria-live="polite" class="entity-list"><p class="muted">Сначала загрузите источник или найдите уже сохранённую организацию.</p></div></section>
+<section id="paths"><div class="section-heading"><div><div class="eyebrow">03 / DOCUMENTED CONNECTIONS</div><h2>Path Finder</h2></div><span class="tag">ТОЛЬКО ПОДТВЕРЖДЁННЫЕ СВЯЗИ</span></div><form id="path-form" class="path-form"><div><label for="source-id">Откуда · UUID из поиска</label><input id="source-id" required placeholder="Выберите «Отсюда» в результатах"></div><span class="arrow">→</span><div><label for="target-id">Куда · UUID из поиска</label><input id="target-id" required placeholder="Выберите «Сюда» в результатах"></div><button>Исследовать</button></form><p class="muted">До 6 переходов, до 10 цепочек. Отсутствие пути в базе не доказывает отсутствие связи в реальности.</p><div id="path-result" aria-live="polite"></div><div id="evidence-result" class="result" hidden></div></section>
+<footer>TRACE · Architecture by Vadym Tsinderhoz <span>Public-source evidence. Explicit uncertainty.</span></footer>
+</main>
+</body></html>

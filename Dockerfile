@@ -4,7 +4,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1
 
-RUN useradd --create-home --uid 10001 trace
+RUN useradd --create-home --uid 10001 trace && mkdir -p /var/lib/trace/evidence && chown -R trace:trace /var/lib/trace
 WORKDIR /app
 
 COPY requirements.txt /app/
