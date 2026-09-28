@@ -9,7 +9,7 @@ try {
         [Management.Automation.Language.Parser]::ParseFile($_.FullName,[ref]$tokens,[ref]$errors) | Out-Null
         if ($errors.Count -gt 0) { throw ($errors | Out-String) }
     }
-    & "$PSScriptRoot\Install.ps1" -Destination $destination -ShortcutDirectory $shortcuts -SkipStart
+    & (Join-Path $root 'Install TRACE.cmd') -Destination $destination -ShortcutDirectory $shortcuts -SkipStart
     foreach ($file in @('compose.desktop.yml','.env','Start TRACE.cmd','services\api\app\main.py','services\api\static\app.js')) {
         if (-not (Test-Path (Join-Path $destination $file))) { throw "Missing $file" }
     }
