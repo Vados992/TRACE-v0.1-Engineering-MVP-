@@ -17,3 +17,14 @@ jobs:
       - run: pip install -e '.[dev]'
       - run: python -m compileall -q services/api scripts
       - run: pytest -q
+      - name: Validate OpenAPI
+        run: |
+          python - <<'PY'
+          import yaml
+          from pathlib import Path
+          for path in sorted(Path('openapi').glob('*.yaml')):
+              data = yaml.safe_load(path.read_text())
+              assert str(data['openapi']).startswith('3.1')
+              assert data['paths']
+              print(path, len(data['paths']))
+          PY

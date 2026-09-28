@@ -71,10 +71,12 @@ async def find_paths(
                                 else None,
                                 "verification_status": e["verification_status"],
                                 "claim_type": e["claim_type"],
+                                "observation_count": int(e.get("observation_count", 0) or 0),
                             }
                             for e in next_edges
                         ],
                         "hops": len(next_edges),
+                        "supporting_observations": sum(int(e.get("observation_count", 0) or 0) for e in next_edges),
                     }
                 )
                 if len(paths) >= limit:
@@ -87,4 +89,4 @@ async def find_paths(
             expanded_depth[next_id] = next_depth
             queue.append((next_id, next_nodes, next_edges))
 
-    return sorted(paths, key=lambda p: p["hops"])
+    return sorted(paths, key=lambda p: (p["hops"], -p.get("supporting_observations", 0)))

@@ -26,7 +26,10 @@ async def fetch_relationship_frontier(
         SELECT r.id, r.subject_entity_id, r.object_entity_id, r.relationship_type,
                r.valid_from, r.valid_to,
                COALESCE(c.verification_status, 'UNVERIFIED') AS verification_status,
-               COALESCE(c.claim_type, 'DERIVED') AS claim_type
+               COALESCE(c.claim_type, 'DERIVED') AS claim_type,
+               (SELECT count(*) FROM relationship_observations ro
+                 WHERE ro.canonical_relationship_id=r.id
+                   AND ro.observation_status='ACTIVE') AS observation_count
         FROM relationships r
         LEFT JOIN claims c ON c.id=r.claim_id
         WHERE (r.subject_entity_id = ANY(%(ids)s) OR r.object_entity_id = ANY(%(ids)s))
@@ -57,6 +60,21 @@ async def relationship_evidence(relationship_id: UUID) -> dict[str, Any] | None:
             rel = await cur.fetchone()
             if not rel:
                 return None
+
+            await cur.execute(
+                """SELECT ro.id AS observation_id, ro.semantic_key, ro.amount, ro.currency,
+                          ro.valid_from, ro.valid_to, ro.observation_status, ro.details,
+                          s.code AS source_code, sr.external_id AS source_external_id,
+                          sr.payload_uri, sr.payload_hash, sr.retrieved_at
+                   FROM relationship_observations ro
+                   JOIN sources s ON s.id=ro.source_id
+                   JOIN source_records sr ON sr.id=ro.source_record_id
+                   WHERE ro.canonical_relationship_id=%s
+                   ORDER BY ro.created_at ASC""",
+                (relationship_id,),
+            )
+            observations = await cur.fetchall()
+
             evidence = []
             if rel["claim_id"]:
                 await cur.execute(
@@ -73,4 +91,22 @@ async def relationship_evidence(relationship_id: UUID) -> dict[str, Any] | None:
                     (rel["claim_id"],),
                 )
                 evidence = await cur.fetchall()
-            return {"relationship": rel, "evidence": evidence}
+
+            await cur.execute(
+                """SELECT rc.id, rc.conflict_type, rc.status, rc.details,
+                          rc.observation_a, rc.observation_b
+                   FROM reconciliation_conflicts rc
+                   JOIN relationship_observations a ON a.id=rc.observation_a
+                   JOIN relationship_observations b ON b.id=rc.observation_b
+                   WHERE a.canonical_relationship_id=%s OR b.canonical_relationship_id=%s
+                   ORDER BY rc.created_at ASC""",
+                (relationship_id, relationship_id),
+            )
+            conflicts = await cur.fetchall()
+
+            return {
+                "relationship": rel,
+                "canonical_claim_evidence": evidence,
+                "source_observations": observations,
+                "reconciliation_conflicts": conflicts,
+            }

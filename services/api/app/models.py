@@ -1,4 +1,5 @@
 from datetime import date, datetime
+from decimal import Decimal
 from typing import Any, Literal
 from uuid import UUID
 
@@ -57,7 +58,12 @@ class ResolutionResult(BaseModel):
 class TedSearchRequest(BaseModel):
     query: str = Field(min_length=1)
     fields: list[str] = Field(
-        default_factory=lambda: ["publication-number", "notice-title", "buyer-name"]
+        default_factory=lambda: [
+            "publication-number", "notice-title", "procedure-identifier", "publication-date",
+            "buyer-name", "buyer-identifier", "buyer-country",
+            "winner-name", "winner-identifier", "winner-country", "winner-decision-date",
+            "result-value-notice", "result-value-cur-notice",
+        ]
     )
     page: int = Field(default=1, ge=1)
     limit: int = Field(default=25, ge=1, le=250)
@@ -109,3 +115,43 @@ class InvestigationResult(BaseModel):
     paths: list[dict[str, Any]] = Field(default_factory=list)
     unknowns: list[str] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
+
+
+class RelationshipBuildResult(BaseModel):
+    layer: str
+    status: Literal["SUCCEEDED", "PARTIAL", "FAILED"]
+    source_record_ids: list[UUID] = Field(default_factory=list)
+    entity_ids: list[UUID] = Field(default_factory=list)
+    relationship_ids: list[UUID] = Field(default_factory=list)
+    money_flow_ids: list[UUID] = Field(default_factory=list)
+    conflicts: int = 0
+    notes: list[str] = Field(default_factory=list)
+
+
+class LobbyingObservationInput(BaseModel):
+    transparency_id: str = Field(min_length=1)
+    registrant_name: str = Field(min_length=1)
+    registrant_country: str | None = None
+    institution_name: str | None = None
+    meeting_date: date | None = None
+    subject: str | None = None
+    policy_celex: str | None = None
+    declared_budget_min: Decimal | None = None
+    declared_budget_max: Decimal | None = None
+    currency: str | None = None
+    source_external_id: str = Field(min_length=1)
+
+
+class LobbyingImportRequest(BaseModel):
+    records: list[LobbyingObservationInput] = Field(min_length=1, max_length=500)
+
+
+class PolicyLifecycleRequest(BaseModel):
+    celex: str = Field(min_length=4)
+
+
+class ReconciliationSummary(BaseModel):
+    open_entity_candidates: int
+    open_relationship_conflicts: int
+    source_mappings: int
+    relationship_observations: int

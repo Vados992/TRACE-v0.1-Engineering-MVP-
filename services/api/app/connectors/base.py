@@ -17,12 +17,27 @@ class BaseConnector:
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
 
-    async def request(self, method: str, url: str, **kwargs) -> httpx.Response:
+    async def _raw_request(self, method: str, url: str, **kwargs) -> httpx.Response:
         timeout = httpx.Timeout(self.timeout)
         async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
-            response = await client.request(method, url, **kwargs)
+            return await client.request(method, url, **kwargs)
+
+    async def request(self, method: str, url: str, **kwargs) -> httpx.Response:
+        response = await self._raw_request(method, url, **kwargs)
         if response.status_code >= 400:
-            raise ConnectorError(f"{self.source_code} returned HTTP {response.status_code}: {response.text[:500]}")
+            raise ConnectorError(
+                f"{self.source_code} returned HTTP {response.status_code}: {response.text[:500]}"
+            )
+        return response
+
+    async def request_optional(self, method: str, url: str, **kwargs) -> httpx.Response | None:
+        response = await self._raw_request(method, url, **kwargs)
+        if response.status_code in {404, 410}:
+            return None
+        if response.status_code >= 400:
+            raise ConnectorError(
+                f"{self.source_code} returned HTTP {response.status_code}: {response.text[:500]}"
+            )
         return response
 
     @staticmethod

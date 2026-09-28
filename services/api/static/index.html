@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>TRACE v0.2 Investigation Console</title>
+  <title>TRACE v0.3 Investigation Console</title>
   <style>
     body { font-family: system-ui, sans-serif; max-width: 1100px; margin: 2rem auto; padding: 0 1rem; }
     input, button { padding: .65rem; margin: .25rem 0; }
@@ -16,13 +16,18 @@
   </style>
 </head>
 <body>
-  <h1>TRACE v0.2</h1>
+  <h1>TRACE v0.3</h1>
   <p>Evidence-first investigation console. A displayed connection is not a claim of causation or wrongdoing.</p>
 
   <h2>Search canonical entities</h2>
   <input id="search" placeholder="Company, institution, policy...">
   <button onclick="searchEntities()">Search</button>
   <pre id="searchOut">[]</pre>
+
+
+  <h2>Reconciliation status</h2>
+  <button onclick="reconciliationSummary()">Refresh reconciliation summary</button>
+  <pre id="reconciliationOut">{}</pre>
 
   <h2>Find documented paths</h2>
   <div class="grid">
@@ -40,6 +45,12 @@ async function searchEntities() {
   const q = document.getElementById("search").value;
   const response = await fetch(`${api}/entities/search?q=${encodeURIComponent(q)}`);
   document.getElementById("searchOut").textContent =
+    JSON.stringify(await response.json(), null, 2);
+}
+
+async function reconciliationSummary() {
+  const response = await fetch(`${api}/reconciliation/summary`);
+  document.getElementById("reconciliationOut").textContent =
     JSON.stringify(await response.json(), null, 2);
 }
 

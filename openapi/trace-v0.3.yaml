@@ -1,0 +1,375 @@
+openapi: 3.1.0
+info:
+  title: TRACE API
+  version: 0.3.0
+  summary: Provenance-first relationship intelligence platform
+  description: >-
+    TRACE v0.3 adds source-backed ownership, procurement, money, lobbying and
+    legal/policy relationship builders plus cross-source reconciliation.
+servers:
+  - url: http://localhost:8000/api/v1
+paths:
+  /entities/search:
+    get:
+      operationId: searchEntities
+      parameters:
+        - in: query
+          name: q
+          required: true
+          schema: {type: string, minLength: 1}
+        - in: query
+          name: entity_type
+          schema: {type: string}
+        - in: query
+          name: limit
+          schema: {type: integer, minimum: 1, maximum: 100, default: 25}
+      responses:
+        '200': {description: Canonical entity matches}
+  /entities/{entity_id}:
+    get:
+      operationId: getEntity
+      parameters:
+        - in: path
+          name: entity_id
+          required: true
+          schema: {type: string, format: uuid}
+      responses:
+        '200': {description: Canonical entity}
+        '404': {description: Not found}
+  /resolve/compare:
+    post:
+      operationId: compareResolutionRecords
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ResolutionRequest'}
+      responses:
+        '200': {description: Explainable entity-resolution decision}
+  /connectors/ted/search:
+    post:
+      operationId: searchTed
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/TedSearchRequest'}
+      responses:
+        '200': {description: Raw TED search response}
+  /connectors/gleif/search:
+    get:
+      operationId: searchGleif
+      parameters:
+        - in: query
+          name: name
+          required: true
+          schema: {type: string, minLength: 2}
+        - in: query
+          name: page_size
+          schema: {type: integer, minimum: 1, maximum: 100, default: 10}
+      responses:
+        '200': {description: Raw GLEIF search response}
+  /connectors/gleif/{lei}:
+    get:
+      operationId: getGleifLei
+      parameters:
+        - in: path
+          name: lei
+          required: true
+          schema: {type: string, minLength: 20, maxLength: 20}
+      responses:
+        '200': {description: Raw GLEIF LEI record}
+  /connectors/eurlex/{celex}:
+    get:
+      operationId: getEurLexByCelex
+      parameters:
+        - in: path
+          name: celex
+          required: true
+          schema: {type: string}
+        - in: query
+          name: language
+          schema: {type: string, default: eng}
+      responses:
+        '200': {description: Cellar document}
+  /ingest/gleif/{lei}:
+    post:
+      operationId: ingestGleifLei
+      parameters:
+        - in: path
+          name: lei
+          required: true
+          schema: {type: string, minLength: 20, maxLength: 20}
+      responses:
+        '200':
+          description: GLEIF evidence and canonical entity
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/IngestResult'}
+  /ingest/eurlex/{celex}:
+    post:
+      operationId: ingestEurLex
+      parameters:
+        - in: path
+          name: celex
+          required: true
+          schema: {type: string}
+        - in: query
+          name: language
+          schema: {type: string, default: eng}
+      responses:
+        '200':
+          description: EUR-Lex evidence and canonical legal act
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/IngestResult'}
+  /ingest/ted/search:
+    post:
+      operationId: ingestTedSearch
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/TedSearchRequest'}
+      responses:
+        '200':
+          description: Immutable TED raw evidence
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/IngestResult'}
+  /relationship-intelligence/ownership/gleif/{lei}:
+    post:
+      operationId: buildGleifOwnership
+      parameters:
+        - in: path
+          name: lei
+          required: true
+          schema: {type: string, minLength: 20, maxLength: 20}
+      responses:
+        '200':
+          description: Build GLEIF accounting-parent relationships
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/RelationshipBuildResult'}
+  /relationship-intelligence/procurement/ted/search:
+    post:
+      operationId: buildTedProcurement
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/TedSearchRequest'}
+      responses:
+        '200':
+          description: Build procurement and unambiguous awarded-money relationships
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/RelationshipBuildResult'}
+  /relationship-intelligence/lobbying/import:
+    post:
+      operationId: importLobbyingObservations
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/LobbyingImportRequest'}
+      responses:
+        '200':
+          description: Build documented meetings and explicit policy-interest relationships
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/RelationshipBuildResult'}
+  /relationship-intelligence/policy/eurlex/{celex}:
+    post:
+      operationId: buildPolicyLifecycle
+      parameters:
+        - in: path
+          name: celex
+          required: true
+          schema: {type: string}
+      responses:
+        '200':
+          description: Build allow-listed Cellar legal relationships
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/RelationshipBuildResult'}
+  /reconciliation/summary:
+    get:
+      operationId: getReconciliationSummary
+      responses:
+        '200':
+          description: Reconciliation counters
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ReconciliationSummary'}
+  /graph/path:
+    post:
+      operationId: findGraphPaths
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/GraphPathRequest'}
+      responses:
+        '200': {description: Evidence/time-filtered paths}
+  /relationships/{relationship_id}/why:
+    get:
+      operationId: explainRelationship
+      parameters:
+        - in: path
+          name: relationship_id
+          required: true
+          schema: {type: string, format: uuid}
+      responses:
+        '200': {description: Canonical claim, source observations and conflicts}
+        '404': {description: Relationship not found}
+  /investigations:
+    post:
+      operationId: runInvestigation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/InvestigationRequest'}
+      responses:
+        '200': {description: Persisted evidence-backed investigation}
+  /investigations/{investigation_id}:
+    get:
+      operationId: getInvestigation
+      parameters:
+        - in: path
+          name: investigation_id
+          required: true
+          schema: {type: string, format: uuid}
+      responses:
+        '200': {description: Persisted investigation}
+        '404': {description: Not found}
+components:
+  schemas:
+    ResolutionRecord:
+      type: object
+      required: [entity_type, name]
+      properties:
+        entity_type: {type: string, enum: [PERSON, ORGANIZATION, PUBLIC_BODY]}
+        name: {type: string}
+        jurisdiction_code: {type: [string, 'null']}
+        address: {type: [string, 'null']}
+        identifiers:
+          type: object
+          additionalProperties: {type: string}
+        directors:
+          type: array
+          items: {type: string}
+        incorporation_date: {type: [string, 'null'], format: date}
+    ResolutionRequest:
+      type: object
+      required: [left, right]
+      properties:
+        left: {$ref: '#/components/schemas/ResolutionRecord'}
+        right: {$ref: '#/components/schemas/ResolutionRecord'}
+    TedSearchRequest:
+      type: object
+      required: [query]
+      properties:
+        query: {type: string, minLength: 1}
+        fields:
+          type: array
+          items: {type: string}
+        page: {type: integer, minimum: 1, default: 1}
+        limit: {type: integer, minimum: 1, maximum: 250, default: 25}
+        pagination_mode: {type: string, enum: [PAGE_NUMBER, ITERATION], default: PAGE_NUMBER}
+        iteration_next_token: {type: [string, 'null']}
+    IngestResult:
+      type: object
+      required: [source, external_id, status]
+      properties:
+        source: {type: string}
+        external_id: {type: string}
+        status: {type: string, enum: [SUCCEEDED, PARTIAL, FAILED]}
+        source_record_id: {type: [string, 'null'], format: uuid}
+        raw_artifact_id: {type: [string, 'null'], format: uuid}
+        entity_ids:
+          type: array
+          items: {type: string, format: uuid}
+        document_ids:
+          type: array
+          items: {type: string, format: uuid}
+        sha256: {type: [string, 'null']}
+        notes:
+          type: array
+          items: {type: string}
+    GraphPathRequest:
+      type: object
+      required: [source_entity_id, target_entity_id]
+      properties:
+        source_entity_id: {type: string, format: uuid}
+        target_entity_id: {type: string, format: uuid}
+        from_time: {type: [string, 'null'], format: date-time}
+        to_time: {type: [string, 'null'], format: date-time}
+        max_depth: {type: integer, minimum: 1, maximum: 8, default: 6}
+        limit: {type: integer, minimum: 1, maximum: 50, default: 10}
+        verified_only: {type: boolean, default: true}
+    InvestigationRequest:
+      allOf:
+        - {$ref: '#/components/schemas/GraphPathRequest'}
+        - type: object
+          properties:
+            query_text: {type: [string, 'null']}
+    LobbyingObservationInput:
+      type: object
+      required: [transparency_id, registrant_name, source_external_id]
+      properties:
+        transparency_id: {type: string}
+        registrant_name: {type: string}
+        registrant_country: {type: [string, 'null']}
+        institution_name: {type: [string, 'null']}
+        meeting_date: {type: [string, 'null'], format: date}
+        subject: {type: [string, 'null']}
+        policy_celex: {type: [string, 'null']}
+        declared_budget_min: {type: [number, 'null']}
+        declared_budget_max: {type: [number, 'null']}
+        currency: {type: [string, 'null']}
+        source_external_id: {type: string}
+    LobbyingImportRequest:
+      type: object
+      required: [records]
+      properties:
+        records:
+          type: array
+          minItems: 1
+          maxItems: 500
+          items: {$ref: '#/components/schemas/LobbyingObservationInput'}
+    RelationshipBuildResult:
+      type: object
+      required: [layer, status]
+      properties:
+        layer: {type: string}
+        status: {type: string, enum: [SUCCEEDED, PARTIAL, FAILED]}
+        source_record_ids:
+          type: array
+          items: {type: string, format: uuid}
+        entity_ids:
+          type: array
+          items: {type: string, format: uuid}
+        relationship_ids:
+          type: array
+          items: {type: string, format: uuid}
+        money_flow_ids:
+          type: array
+          items: {type: string, format: uuid}
+        conflicts: {type: integer, minimum: 0}
+        notes:
+          type: array
+          items: {type: string}
+    ReconciliationSummary:
+      type: object
+      required:
+        - open_entity_candidates
+        - open_relationship_conflicts
+        - source_mappings
+        - relationship_observations
+      properties:
+        open_entity_candidates: {type: integer, minimum: 0}
+        open_relationship_conflicts: {type: integer, minimum: 0}
+        source_mappings: {type: integer, minimum: 0}
+        relationship_observations: {type: integer, minimum: 0}

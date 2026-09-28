@@ -1,45 +1,148 @@
-# TRACE v0.2 — Execution Layer
+# TRACE v0.3 — Relationship Intelligence Layer
 
 **Transparent Relationship & Allocation Chain Explorer**
 
-TRACE is a provenance-first system for reconstructing documented relationships between public policy, organizations, public/professional actors, corporate ownership, procurement, lobbying and financial flows.
+TRACE is a provenance-first platform for reconstructing documented relationships between public policy, organizations, public/professional actors, procurement, corporate structures, lobbying disclosures and financial flows.
 
-v0.2 turns the v0.1 architecture into an executable evidence pipeline:
+v0.3 extends the v0.2 execution layer with automatic, source-backed relationship builders and cross-source reconciliation.
 
 ```text
 PUBLIC SOURCE
     ↓
-CONNECTOR
+CONNECTOR / STANDARDIZED OFFICIAL IMPORT
     ↓
-IMMUTABLE RAW ARTIFACT (MinIO + SHA-256)
+IMMUTABLE RAW EVIDENCE (MinIO + SHA-256)
     ↓
 SOURCE RECORD
     ↓
-PARSER / CANONICALIZER
+SOURCE-SPECIFIC PARSER
     ↓
-ENTITY + IDENTIFIER + CLAIM + EVIDENCE
+CROSS-SOURCE ENTITY RECONCILIATION
     ↓
-TEMPORAL RELATIONSHIP GRAPH
+RELATIONSHIP OBSERVATION
     ↓
-PATH FINDER
+CANONICAL TEMPORAL RELATIONSHIP
     ↓
-INVESTIGATION RESULT
+OWNERSHIP / PROCUREMENT / MONEY / LOBBYING / POLICY GRAPH
+    ↓
+PATH FINDER + WHY ENDPOINT
 ```
 
-## Implemented in v0.2
+## Relationship intelligence implemented in v0.3
 
-- Checksum-protected PostgreSQL migrations.
-- Immutable raw-artifact metadata and MinIO object storage.
-- Ingestion job ledger.
-- GLEIF LEI ingestion into canonical organizations and verified LEI identifiers.
-- EUR-Lex/Cellar CELEX ingestion into canonical legal acts, documents and document versions.
-- TED v3 raw search-response ingestion with schema-gated normalization policy.
-- Claim/evidence linkage to source records and document versions.
-- Time-filtered, evidence-filtered relationship Path Finder.
-- `WHY IS THIS CONNECTION SHOWN?` evidence endpoint.
-- Persisted investigations with explicit `unknowns` and warnings.
-- Minimal citizen investigation web console at `/ui/`.
-- GitHub Actions test/compile workflow.
+### Ownership / corporate structure
+
+`POST /api/v1/relationship-intelligence/ownership/gleif/{lei}`
+
+The builder retrieves the LEI record plus available GLEIF direct and ultimate parent records and creates:
+
+- `DIRECT_ACCOUNTING_PARENT_OF`
+- `ULTIMATE_ACCOUNTING_PARENT_OF`
+- corresponding `ownership_interests` records with explicit GLEIF accounting-consolidation semantics
+
+TRACE deliberately does **not** relabel these records as beneficial ownership.
+
+### Procurement + awarded money
+
+`POST /api/v1/relationship-intelligence/procurement/ted/search`
+
+TRACE requests the TED fields required for buyer, winner, notice, procedure, award date and notice-result value. It automatically creates:
+
+- canonical procurement notice/contract entities;
+- buyer → notice edges;
+- notice → winner edges;
+- buyer → winner `AWARDED_CONTRACT_TO` edges only when the pair is unambiguous;
+- `money_flows` only when one buyer, one winner, amount and currency are all available;
+- procurement award records.
+
+For multi-party awards, TRACE does not distribute a notice-level total across winners unless the source provides an unambiguous allocation.
+
+### Cross-source reconciliation
+
+v0.3 introduces:
+
+- `source_entity_mappings`;
+- deterministic strong-identifier reconciliation;
+- GLEIF national registration identifiers;
+- TED organization identifier mappings;
+- exact cross-source registration-number matching when jurisdiction aligns;
+- human-review queue for name-only candidates;
+- `relationship_observations` linked to canonical relationships;
+- numeric conflict detection across relationship observations;
+- `reconciliation_conflicts`.
+
+Name similarity alone does not silently merge organizations across sources.
+
+### Lobbying / transparency observations
+
+`POST /api/v1/relationship-intelligence/lobbying/import`
+
+The public EU Transparency Register is an authoritative disclosure source, but v0.3 does not depend on an undocumented scraping endpoint. It accepts standardized records derived from official register/meeting exports or another approved official-data ingestion process and automatically creates:
+
+- canonical registrants keyed by EU Transparency Register ID;
+- public institutions;
+- `MET_WITH` edges for explicit dated meetings;
+- `LOBBIED_ON` only when the source record explicitly supplies a policy CELEX identifier;
+- budget disclosures as disclosure metadata, not as money transfers.
+
+Free-text meeting subjects alone never create a policy-causation edge.
+
+### Policy lifecycle / legal relations
+
+`POST /api/v1/relationship-intelligence/policy/eurlex/{celex}`
+
+TRACE retrieves Cellar RDF metadata for the CELEX work, persists it immutably, extracts allow-listed CELEX-to-CELEX legal relations, and creates canonical edges such as:
+
+- `AMENDS`
+- `AMENDED_BY`
+- `CITES`
+- `CITED_BY`
+- `BASED_ON`
+- `BASIS_FOR`
+- `SUCCESSOR_OF`
+- `HAS_SUCCESSOR`
+- `CORRECTS`
+- `CORRECTED_BY`
+
+Unknown RDF predicates are ignored rather than guessed.
+
+## Reconciliation visibility
+
+`GET /api/v1/reconciliation/summary`
+
+Returns counts for:
+
+- open entity-resolution candidates;
+- open relationship conflicts;
+- source-to-canonical mappings;
+- relationship observations.
+
+## Explainability
+
+Every automatically built canonical relationship can be inspected with:
+
+```text
+GET /api/v1/relationships/{relationship_id}/why
+```
+
+The response includes:
+
+- canonical relationship;
+- canonical claim evidence;
+- every source observation attached to the relationship;
+- immutable payload URI/hash metadata;
+- reconciliation conflicts.
+
+## Path Finder
+
+New v0.3 relationships are written directly to the canonical PostgreSQL relationship layer, so the existing Path Finder can use them immediately without waiting for a Neo4j rebuild:
+
+```text
+POST /api/v1/graph/path
+POST /api/v1/investigations
+```
+
+Neo4j remains a rebuildable projection/acceleration layer, not the system of record.
 
 ## Quick start
 
@@ -58,73 +161,71 @@ MinIO UI:  http://localhost:9001
 Neo4j UI:  http://localhost:7474
 ```
 
-## Example: ingest a GLEIF record
+## Examples
+
+### Build a GLEIF ownership chain
 
 ```bash
-curl -X POST http://localhost:8000/api/v1/ingest/gleif/529900T8BM49AURSDO55
+curl -X POST http://localhost:8000/api/v1/relationship-intelligence/ownership/gleif/529900T8BM49AURSDO55
 ```
 
-TRACE stores the raw JSON in MinIO, records its SHA-256, inserts a source record, creates/reuses the canonical organization, stores the LEI as a verified identifier, and creates an evidence-backed identity claim.
-
-## Example: ingest an EUR-Lex act
+### Build TED procurement relationships
 
 ```bash
-curl -X POST 'http://localhost:8000/api/v1/ingest/eurlex/32016R0679?language=eng'
-```
-
-## Example: raw TED evidence ingestion
-
-```bash
-curl -X POST http://localhost:8000/api/v1/ingest/ted/search \
+curl -X POST http://localhost:8000/api/v1/relationship-intelligence/procurement/ted/search \
   -H 'content-type: application/json' \
   -d '{
-    "query": "publication-number = 000000-2026",
-    "fields": ["publication-number", "notice-title", "buyer-name"],
-    "limit": 10
+    "query": "publication-date >= 20260101",
+    "limit": 25
   }'
 ```
 
-TED normalization is intentionally conservative in v0.2. Search responses are persisted immutably first; notice-to-canonical extraction should be implemented per validated TED notice schema/version instead of guessing a universal mapping.
-
-## Example: find a documented path
+### Import an official lobbying/meeting observation
 
 ```bash
-curl -X POST http://localhost:8000/api/v1/graph/path \
+curl -X POST http://localhost:8000/api/v1/relationship-intelligence/lobbying/import \
   -H 'content-type: application/json' \
   -d '{
-    "source_entity_id": "00000000-0000-0000-0000-000000000001",
-    "target_entity_id": "00000000-0000-0000-0000-000000000002",
-    "max_depth": 6,
-    "limit": 10,
-    "verified_only": true
+    "records": [{
+      "transparency_id": "000000000000-00",
+      "registrant_name": "Example Association",
+      "registrant_country": "BE",
+      "institution_name": "European Commission",
+      "meeting_date": "2026-09-01",
+      "subject": "Discussion of an identified legislative file",
+      "policy_celex": "32026R0001",
+      "source_external_id": "official-export-row-123"
+    }]
   }'
 ```
 
-## Investigation semantics
+### Build Cellar legal/policy relationships
 
-TRACE never converts proximity into causality. A meeting, contract, ownership change or funding event can be shown on the same timeline without implying that one caused another.
+```bash
+curl -X POST http://localhost:8000/api/v1/relationship-intelligence/policy/eurlex/32016R0679
+```
 
-Every investigation can return:
-
-- verified paths;
-- evidence status;
-- time boundaries;
-- unknowns;
-- explicit warnings.
-
-Absence of a path means only that no qualifying path exists in the currently ingested canonical graph.
-
-## GLEIF ownership semantics
-
-GLEIF Level 2 data describes direct and ultimate **accounting consolidating parents**. TRACE must not relabel those relationships as beneficial ownership unless a separate source establishes beneficial ownership.
-
-## Current limits
-
-v0.2 is an execution-layer MVP, not a production public service. Before public deployment it still needs authentication/RBAC, gateway rate limiting, staff MFA, DPIA/data-subject workflows, source-specific retention rules, full TED canonical parsers, broader corporate-registry/lobbying/funding connectors, human entity-resolution review UI, production observability, backup/restore, SBOM/container signing, and penetration testing.
-
-## Tests
+## Tests and CI
 
 ```bash
 python -m compileall -q services/api scripts
 pytest -q
 ```
+
+The repository uses explicit setuptools package discovery so GitHub Actions can install the project with:
+
+```bash
+pip install -e '.[dev]'
+```
+
+This fixes the v0.2 CI packaging failure caused by flat-layout auto-discovery.
+
+## Safety / evidence invariants
+
+TRACE must not output a corruption probability, political integrity score or inferred criminal intent.
+
+A graph edge means only that a defined relationship is supported by the cited source under the stated semantics. Temporal proximity does not establish causation. Missing data does not establish wrongdoing. Name similarity alone does not establish identity.
+
+## Current limits
+
+v0.3 is still an engineering MVP. A production public service still requires authentication/RBAC, WAF/rate limiting, staff MFA, DPIA/data-subject workflows, production observability, backup/restore, signed containers/SBOM, source-license review, robust official Transparency Register export automation, broader national registries, and integration tests against live services and container infrastructure.

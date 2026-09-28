@@ -111,8 +111,9 @@ async def ensure_entity(
             """SELECT e.id FROM entities e
                JOIN entity_identifiers i ON i.entity_id=e.id
                WHERE i.scheme=%s AND i.identifier_value=%s
+                 AND (%s IS NULL OR i.country_code IS NULL OR i.country_code=%s)
                ORDER BY i.verified DESC, e.created_at ASC LIMIT 1""",
-            (identifier_scheme, identifier_value),
+            (identifier_scheme, identifier_value, jurisdiction_code, jurisdiction_code),
         )
         row = await cur.fetchone()
         if row:

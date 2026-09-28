@@ -1,7 +1,7 @@
 from typing import Any
 from uuid import UUID
 
-from .entity_resolution.normalize import normalize_org_name
+from .entity_resolution.normalize import normalize_org_name, normalize_identifier
 from .parsers import extract_html_title, parse_gleif_record
 from .ingest_repository import (
     ensure_claim_with_source,
@@ -35,6 +35,30 @@ async def canonicalize_gleif(
         verified=True,
         source_record_id=source_record_id,
     )
+
+    registered_as = normalize_identifier(record.get("registered_as"))
+    if registered_as:
+        await ensure_identifier(
+            conn,
+            entity_id=entity_id,
+            scheme="NATIONAL_COMPANY_NUMBER",
+            identifier_value=registered_as,
+            country_code=record["jurisdiction"],
+            verified=True,
+            source_record_id=source_record_id,
+        )
+        authority_id = record.get("registration_authority_id")
+        if authority_id:
+            await ensure_identifier(
+                conn,
+                entity_id=entity_id,
+                scheme=f"GLEIF_RA:{authority_id}",
+                identifier_value=registered_as,
+                country_code=record["jurisdiction"],
+                verified=True,
+                source_record_id=source_record_id,
+            )
+
     await ensure_claim_with_source(
         conn,
         subject_entity_id=entity_id,
@@ -89,7 +113,7 @@ async def canonicalize_eurlex(
         object_uri=object_uri,
         mime_type="text/html",
         language="eng",
-        parser_version="trace-v0.2",
+        parser_version="trace-v0.3",
     )
     await ensure_claim_with_source(
         conn,

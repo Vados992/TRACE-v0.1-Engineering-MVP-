@@ -19,6 +19,9 @@ from .models import (
     IngestResult,
     InvestigationRequest,
     InvestigationResult,
+    LobbyingImportRequest,
+    ReconciliationSummary,
+    RelationshipBuildResult,
     ResolutionRequest,
     ResolutionResult,
     TedSearchRequest,
@@ -26,6 +29,7 @@ from .models import (
 from .pathfinder import find_paths
 from .investigation_repository import get_investigation
 from .path_repository import relationship_evidence
+from .relationship_intelligence import RelationshipIntelligenceService, reconciliation_summary
 from .repository import get_entity, search_entities
 from .settings import settings
 
@@ -41,7 +45,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="TRACE API",
-    version="0.2.0",
+    version="0.3.0",
     summary="Provenance-first public-interest relationship explorer",
     lifespan=lifespan,
 )
@@ -53,7 +57,7 @@ if static_dir.exists():
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "version": "0.2.0", "environment": settings.trace_env}
+    return {"status": "ok", "version": "0.3.0", "environment": settings.trace_env}
 
 
 @app.get("/api/v1/entities/search", response_model=list[EntitySummary])
@@ -118,6 +122,43 @@ async def ingest_eurlex(celex: str, language: str = "eng"):
 @app.post("/api/v1/ingest/ted/search", response_model=IngestResult)
 async def ingest_ted(request: TedSearchRequest):
     return await IngestionService().ingest_ted_search(request)
+
+
+@app.post(
+    "/api/v1/relationship-intelligence/ownership/gleif/{lei}",
+    response_model=RelationshipBuildResult,
+)
+async def build_ownership(lei: str):
+    return await RelationshipIntelligenceService().build_gleif_ownership(lei)
+
+
+@app.post(
+    "/api/v1/relationship-intelligence/procurement/ted/search",
+    response_model=RelationshipBuildResult,
+)
+async def build_procurement(request: TedSearchRequest):
+    return await RelationshipIntelligenceService().build_ted_procurement(request)
+
+
+@app.post(
+    "/api/v1/relationship-intelligence/lobbying/import",
+    response_model=RelationshipBuildResult,
+)
+async def build_lobbying(request: LobbyingImportRequest):
+    return await RelationshipIntelligenceService().import_lobbying(request)
+
+
+@app.post(
+    "/api/v1/relationship-intelligence/policy/eurlex/{celex}",
+    response_model=RelationshipBuildResult,
+)
+async def build_policy_lifecycle(celex: str):
+    return await RelationshipIntelligenceService().build_policy_lifecycle(celex)
+
+
+@app.get("/api/v1/reconciliation/summary", response_model=ReconciliationSummary)
+async def reconciliation_status():
+    return await reconciliation_summary()
 
 
 @app.post("/api/v1/graph/path")
