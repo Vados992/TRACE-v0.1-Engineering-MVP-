@@ -2,7 +2,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $TraceRoot = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 function Invoke-TraceCompose {
-    param([Parameter(ValueFromRemainingArguments=$true)][string[]]$ComposeArgs)
+    param([string[]]$ComposeArgs)
     & docker compose --project-name trace-desktop --project-directory $TraceRoot --env-file (Join-Path $TraceRoot '.env') -f (Join-Path $TraceRoot 'compose.desktop.yml') @ComposeArgs
     if ($LASTEXITCODE -ne 0) { throw "Docker Compose failed (exit $LASTEXITCODE)." }
 }

@@ -25,6 +25,11 @@ try {
     catch { $blocked=$true }
     if (-not $blocked) { throw 'Installer overwrote existing installation.' }
     if ((Get-Content (Join-Path $destination '.env') -Raw) -ne $envText) { throw 'Existing configuration changed.' }
+    . "$PSScriptRoot\Common.ps1"
+    function docker { $script:capturedDockerArguments = @($args); $global:LASTEXITCODE = 0 }
+    Invoke-TraceCompose -ComposeArgs @('up','-d','--build')
+    if ($script:capturedDockerArguments -notcontains '-d' -or $script:capturedDockerArguments -notcontains '--build') { throw 'Docker flags lost during forwarding.' }
+    Remove-Item Function:\docker
     Write-Host 'PASS: PowerShell parsing, installation, random credentials, shortcut, spaces, overwrite protection.'
 } finally {
     if (Test-Path $testHome) { Remove-Item -LiteralPath $testHome -Recurse -Force }
