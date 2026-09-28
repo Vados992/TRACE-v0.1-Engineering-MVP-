@@ -27,7 +27,7 @@ docker compose up -d --build postgres minio neo4j opensearch redis
 
 wait_for "PostgreSQL" 60 docker compose exec -T postgres pg_isready -U trace -d trace
 wait_for "Redis" 60 docker compose exec -T redis redis-cli ping
-wait_for "MinIO" 60 curl -fsS http://127.0.0.1:9000/minio/health/live
+wait_for "MinIO" 60 curl -fsS http://127.0.0.1:9000/_localstack/health
 wait_for "Neo4j HTTP" 60 curl -fsS http://127.0.0.1:7474
 wait_for "OpenSearch" 90 curl -fsS http://127.0.0.1:9200
 
@@ -146,7 +146,7 @@ PY
 
 echo "==> Final service checks"
 docker compose exec -T redis redis-cli ping | grep -q PONG
-curl -fsS http://127.0.0.1:9000/minio/health/live >/dev/null
+curl -fsS http://127.0.0.1:9000/_localstack/health >/dev/null
 curl -fsS http://127.0.0.1:7474 >/dev/null
 curl -fsS http://127.0.0.1:9200 >/dev/null
 

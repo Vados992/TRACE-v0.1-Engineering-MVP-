@@ -157,7 +157,7 @@ Endpoints:
 API docs:  http://localhost:8000/docs
 UI:        http://localhost:8000/ui/
 Health:    http://localhost:8000/health
-MinIO UI:  http://localhost:9001
+S3 dev gateway: http://localhost:9000
 Neo4j UI:  http://localhost:7474
 ```
 
