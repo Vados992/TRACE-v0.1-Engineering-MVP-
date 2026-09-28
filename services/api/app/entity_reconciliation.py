@@ -33,7 +33,7 @@ async def find_entity_by_identifier(
         await cur.execute(
             """SELECT entity_id FROM entity_identifiers
                WHERE scheme=%s AND identifier_value=%s
-                 AND (%s IS NULL OR country_code IS NULL OR country_code=%s)
+                 AND (CAST(%s AS TEXT) IS NULL OR country_code IS NULL OR country_code=CAST(%s AS TEXT))
                ORDER BY verified DESC, created_at ASC LIMIT 1""",
             (scheme, normalized, country_code, country_code),
         )
@@ -82,7 +82,7 @@ async def _queue_name_candidates(
             """SELECT id, similarity(normalized_name, %s) AS score
                FROM entities
                WHERE id<>%s AND entity_type=%s
-                 AND (%s IS NULL OR jurisdiction_code IS NULL OR jurisdiction_code=%s)
+                 AND (CAST(%s AS TEXT) IS NULL OR jurisdiction_code IS NULL OR jurisdiction_code=CAST(%s AS TEXT))
                  AND similarity(normalized_name, %s) >= 0.90
                ORDER BY score DESC LIMIT 5""",
             (

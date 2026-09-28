@@ -34,8 +34,8 @@ async def fetch_relationship_frontier(
         LEFT JOIN claims c ON c.id=r.claim_id
         WHERE (r.subject_entity_id = ANY(%(ids)s) OR r.object_entity_id = ANY(%(ids)s))
           AND r.superseded_at IS NULL
-          AND (%(from_time)s IS NULL OR r.valid_to IS NULL OR r.valid_to >= %(from_time)s)
-          AND (%(to_time)s IS NULL OR r.valid_from IS NULL OR r.valid_from <= %(to_time)s)
+          AND (CAST(%(from_time)s AS TIMESTAMPTZ) IS NULL OR r.valid_to IS NULL OR r.valid_to >= CAST(%(from_time)s AS TIMESTAMPTZ))
+          AND (CAST(%(to_time)s AS TIMESTAMPTZ) IS NULL OR r.valid_from IS NULL OR r.valid_from <= CAST(%(to_time)s AS TIMESTAMPTZ))
           {verification_clause}
         ORDER BY r.observed_at ASC, r.id ASC
     """
