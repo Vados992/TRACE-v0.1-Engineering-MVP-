@@ -1,0 +1,276 @@
+openapi: 3.1.0
+info:
+  title: TRACE API
+  version: 0.2.0
+  summary: Provenance-first public-interest relationship explorer
+  description: >-
+    TRACE v0.2 adds immutable evidence ingestion, canonicalization, temporal path
+    discovery and persisted investigations. Correlation is not represented as causation.
+servers:
+  - url: http://localhost:8000/api/v1
+paths:
+  /entities/search:
+    get:
+      operationId: searchEntities
+      parameters:
+        - in: query
+          name: q
+          required: true
+          schema: {type: string, minLength: 1}
+        - in: query
+          name: entity_type
+          schema: {type: string}
+        - in: query
+          name: limit
+          schema: {type: integer, minimum: 1, maximum: 100, default: 25}
+      responses:
+        '200': {description: Canonical entity matches}
+  /entities/{entity_id}:
+    get:
+      operationId: getEntity
+      parameters:
+        - {$ref: '#/components/parameters/EntityId'}
+      responses:
+        '200': {description: Canonical entity and identifiers}
+        '404': {description: Not found}
+  /resolve/compare:
+    post:
+      operationId: compareResolutionRecords
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ResolutionRequest'}
+      responses:
+        '200': {description: Explainable entity-resolution decision}
+  /connectors/ted/search:
+    post:
+      operationId: searchTed
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/TedSearchRequest'}
+      responses:
+        '200': {description: Raw TED v3 response}
+  /connectors/gleif/search:
+    get:
+      operationId: searchGleif
+      parameters:
+        - in: query
+          name: name
+          required: true
+          schema: {type: string, minLength: 2}
+        - in: query
+          name: page_size
+          schema: {type: integer, minimum: 1, maximum: 100, default: 10}
+      responses:
+        '200': {description: Raw GLEIF JSON:API response}
+  /connectors/gleif/{lei}:
+    get:
+      operationId: getGleifLei
+      parameters:
+        - in: path
+          name: lei
+          required: true
+          schema: {type: string, minLength: 20, maxLength: 20}
+      responses:
+        '200': {description: Raw GLEIF LEI record}
+  /connectors/eurlex/{celex}:
+    get:
+      operationId: getEurLexByCelex
+      parameters:
+        - in: path
+          name: celex
+          required: true
+          schema: {type: string}
+        - in: query
+          name: language
+          schema: {type: string, default: eng}
+      responses:
+        '200': {description: Content-negotiated Cellar document}
+  /ingest/gleif/{lei}:
+    post:
+      operationId: ingestGleifLei
+      parameters:
+        - in: path
+          name: lei
+          required: true
+          schema: {type: string, minLength: 20, maxLength: 20}
+      responses:
+        '200':
+          description: Immutable evidence and canonical organization created/reused
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/IngestResult'}
+  /ingest/eurlex/{celex}:
+    post:
+      operationId: ingestEurLex
+      parameters:
+        - in: path
+          name: celex
+          required: true
+          schema: {type: string}
+        - in: query
+          name: language
+          schema: {type: string, default: eng}
+      responses:
+        '200':
+          description: Immutable evidence, legal act and document version created/reused
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/IngestResult'}
+  /ingest/ted/search:
+    post:
+      operationId: ingestTedSearch
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/TedSearchRequest'}
+      responses:
+        '200':
+          description: Immutable raw TED search evidence persisted
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/IngestResult'}
+  /graph/path:
+    post:
+      operationId: findGraphPaths
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/GraphPathRequest'}
+      responses:
+        '200': {description: Time/evidence-filtered relationship paths}
+  /relationships/{relationship_id}/why:
+    get:
+      operationId: explainRelationship
+      parameters:
+        - in: path
+          name: relationship_id
+          required: true
+          schema: {type: string, format: uuid}
+      responses:
+        '200': {description: Claim and evidence supporting the relationship}
+        '404': {description: Relationship not found}
+  /investigations:
+    post:
+      operationId: runInvestigation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/InvestigationRequest'}
+      responses:
+        '200':
+          description: Persisted evidence-backed investigation result
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/InvestigationResult'}
+  /investigations/{investigation_id}:
+    get:
+      operationId: getInvestigation
+      parameters:
+        - in: path
+          name: investigation_id
+          required: true
+          schema: {type: string, format: uuid}
+      responses:
+        '200': {description: Persisted investigation record}
+        '404': {description: Investigation not found}
+components:
+  parameters:
+    EntityId:
+      in: path
+      name: entity_id
+      required: true
+      schema: {type: string, format: uuid}
+  schemas:
+    ResolutionRecord:
+      type: object
+      required: [entity_type, name]
+      properties:
+        entity_type: {type: string, enum: [PERSON, ORGANIZATION, PUBLIC_BODY]}
+        name: {type: string}
+        jurisdiction_code: {type: [string, 'null']}
+        address: {type: [string, 'null']}
+        identifiers:
+          type: object
+          additionalProperties: {type: string}
+        directors:
+          type: array
+          items: {type: string}
+        incorporation_date: {type: [string, 'null'], format: date}
+    ResolutionRequest:
+      type: object
+      required: [left, right]
+      properties:
+        left: {$ref: '#/components/schemas/ResolutionRecord'}
+        right: {$ref: '#/components/schemas/ResolutionRecord'}
+    TedSearchRequest:
+      type: object
+      required: [query]
+      properties:
+        query: {type: string, minLength: 1}
+        fields:
+          type: array
+          items: {type: string}
+        page: {type: integer, minimum: 1, default: 1}
+        limit: {type: integer, minimum: 1, maximum: 250, default: 25}
+        pagination_mode: {type: string, enum: [PAGE_NUMBER, ITERATION], default: PAGE_NUMBER}
+        iteration_next_token: {type: [string, 'null']}
+    IngestResult:
+      type: object
+      required: [source, external_id, status]
+      properties:
+        source: {type: string}
+        external_id: {type: string}
+        status: {type: string, enum: [SUCCEEDED, PARTIAL, FAILED]}
+        source_record_id: {type: [string, 'null'], format: uuid}
+        raw_artifact_id: {type: [string, 'null'], format: uuid}
+        entity_ids:
+          type: array
+          items: {type: string, format: uuid}
+        document_ids:
+          type: array
+          items: {type: string, format: uuid}
+        sha256: {type: [string, 'null']}
+        notes:
+          type: array
+          items: {type: string}
+    GraphPathRequest:
+      type: object
+      required: [source_entity_id, target_entity_id]
+      properties:
+        source_entity_id: {type: string, format: uuid}
+        target_entity_id: {type: string, format: uuid}
+        from_time: {type: [string, 'null'], format: date-time}
+        to_time: {type: [string, 'null'], format: date-time}
+        max_depth: {type: integer, minimum: 1, maximum: 8, default: 6}
+        limit: {type: integer, minimum: 1, maximum: 50, default: 10}
+        verified_only: {type: boolean, default: true}
+    InvestigationRequest:
+      allOf:
+        - {$ref: '#/components/schemas/GraphPathRequest'}
+        - type: object
+          properties:
+            query_text: {type: [string, 'null']}
+    InvestigationResult:
+      type: object
+      required: [investigation_id, status, source_entity, target_entity, paths, unknowns, warnings]
+      properties:
+        investigation_id: {type: string, format: uuid}
+        status: {type: string, enum: [SUCCEEDED, FAILED]}
+        source_entity: {type: object, additionalProperties: true}
+        target_entity: {type: object, additionalProperties: true}
+        paths:
+          type: array
+          items: {type: object, additionalProperties: true}
+        unknowns:
+          type: array
+          items: {type: string}
+        warnings:
+          type: array
+          items: {type: string}

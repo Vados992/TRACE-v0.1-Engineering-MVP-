@@ -9,6 +9,13 @@ class Settings(BaseSettings):
     neo4j_uri: str = "bolt://localhost:7687"
     neo4j_user: str = "neo4j"
     neo4j_password: str = "trace_graph_dev_only"
+
+    minio_endpoint: str = "localhost:9000"
+    minio_access_key: str = "trace_minio"
+    minio_secret_key: str = "trace_minio_dev_only"
+    minio_bucket: str = "trace-evidence"
+    minio_secure: bool = False
+
     ted_base_url: str = "https://api.ted.europa.eu"
     gleif_base_url: str = "https://api.gleif.org/api/v1"
     cellar_base_url: str = "https://publications.europa.eu/resource/celex"

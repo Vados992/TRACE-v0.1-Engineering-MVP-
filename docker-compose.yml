@@ -26,11 +26,6 @@ services:
       - "127.0.0.1:7687:7687"
     volumes:
       - neo4j_data:/data
-    healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:7474 >/dev/null || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 20
 
   opensearch:
     image: opensearchproject/opensearch:2
@@ -84,6 +79,8 @@ services:
         condition: service_completed_successfully
       postgres:
         condition: service_healthy
+      minio:
+        condition: service_started
     read_only: true
     tmpfs:
       - /tmp

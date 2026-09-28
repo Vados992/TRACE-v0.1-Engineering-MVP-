@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TRACE v0.2 Investigation Console</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 1100px; margin: 2rem auto; padding: 0 1rem; }
+    input, button { padding: .65rem; margin: .25rem 0; }
+    input { width: 100%; box-sizing: border-box; }
+    button { cursor: pointer; }
+    pre { white-space: pre-wrap; background: #f4f4f4; padding: 1rem; border-radius: 8px; overflow: auto; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    .note { font-size: .9rem; opacity: .75; }
+    @media (max-width: 700px) { .grid { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <h1>TRACE v0.2</h1>
+  <p>Evidence-first investigation console. A displayed connection is not a claim of causation or wrongdoing.</p>
+
+  <h2>Search canonical entities</h2>
+  <input id="search" placeholder="Company, institution, policy...">
+  <button onclick="searchEntities()">Search</button>
+  <pre id="searchOut">[]</pre>
+
+  <h2>Find documented paths</h2>
+  <div class="grid">
+    <div><label>Source entity UUID</label><input id="sourceId"></div>
+    <div><label>Target entity UUID</label><input id="targetId"></div>
+  </div>
+  <button onclick="investigate()">Run investigation</button>
+  <p class="note">The current UI expects canonical entity UUIDs returned by search/ingestion.</p>
+  <pre id="investigationOut">{}</pre>
+
+<script>
+const api = "/api/v1";
+
+async function searchEntities() {
+  const q = document.getElementById("search").value;
+  const response = await fetch(`${api}/entities/search?q=${encodeURIComponent(q)}`);
+  document.getElementById("searchOut").textContent =
+    JSON.stringify(await response.json(), null, 2);
+}
+
+async function investigate() {
+  const payload = {
+    source_entity_id: document.getElementById("sourceId").value,
+    target_entity_id: document.getElementById("targetId").value,
+    max_depth: 6,
+    limit: 10,
+    verified_only: true
+  };
+  const response = await fetch(`${api}/investigations`, {
+    method: "POST",
+    headers: {"content-type": "application/json"},
+    body: JSON.stringify(payload)
+  });
+  document.getElementById("investigationOut").textContent =
+    JSON.stringify(await response.json(), null, 2);
+}
+</script>
+</body>
+</html>
