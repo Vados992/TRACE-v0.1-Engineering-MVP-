@@ -255,3 +255,7 @@ bash scripts/docker_smoke.sh
 ```
 
 The live external ingestion is retried, but an unavailable or incompatible upstream GLEIF API still causes the smoke test to fail intentionally: an end-to-end test should detect that the real integration is unavailable.
+
+## Windows desktop application
+
+See [START_HERE_RU.md](START_HERE_RU.md) for installation and [docs/DESKTOP.md](docs/DESKTOP.md) for technical boundaries. Extract the full repository/package and run `Install TRACE.cmd`. It creates a TRACE folder and shortcut on the Windows Desktop. Docker Desktop with Linux containers must be running. The desktop stack uses `compose.desktop.yml`, persistent local evidence storage, random database passwords and loopback access.

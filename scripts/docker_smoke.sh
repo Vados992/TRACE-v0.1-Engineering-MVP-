@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Never remove the normal application project volumes.
+export COMPOSE_PROJECT_NAME="trace-legacy-smoke-${GITHUB_RUN_ID:-$$}"
+trap 'docker compose down -v --remove-orphans >/dev/null 2>&1 || true' EXIT
+
 API_URL="${TRACE_API_URL:-http://127.0.0.1:8000}"
 TEST_LEI="${TRACE_TEST_LEI:-529900T8BM49AURSDO55}"
 TARGET_ENTITY_ID="00000000-0000-0000-0000-00000000c001"

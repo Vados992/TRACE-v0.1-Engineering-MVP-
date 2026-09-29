@@ -1,4 +1,5 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from typing import Literal
 
 
 class Settings(BaseSettings):
@@ -15,6 +16,10 @@ class Settings(BaseSettings):
     minio_secret_key: str = "trace_minio_dev_only"
     minio_bucket: str = "trace-evidence"
     minio_secure: bool = False
+    evidence_backend: Literal["s3", "filesystem"] = "s3"
+    evidence_directory: str = "/var/lib/trace/evidence"
+    redis_url: str = "redis://redis:6379/0"
+    opensearch_url: str = "http://opensearch:9200"
 
     ted_base_url: str = "https://api.ted.europa.eu"
     gleif_base_url: str = "https://api.gleif.org/api/v1"

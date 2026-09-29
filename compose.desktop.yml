@@ -1,0 +1,75 @@
+# Private local stack. Only the API is published, on loopback.
+# Evidence lives in a durable named volume, independently of a cloud emulator.
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: trace
+      POSTGRES_USER: trace
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Run the installer first}
+    volumes: ["postgres_data:/var/lib/postgresql/data"]
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U trace -d trace"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+  neo4j:
+    image: neo4j:5-community
+    restart: unless-stopped
+    environment:
+      NEO4J_AUTH: neo4j/${NEO4J_PASSWORD:?Run the installer first}
+      NEO4J_server_memory_heap_initial__size: 256m
+      NEO4J_server_memory_heap_max__size: 512m
+      NEO4J_server_memory_pagecache_size: 256m
+    volumes: ["neo4j_data:/data"]
+  opensearch:
+    image: opensearchproject/opensearch:2
+    restart: unless-stopped
+    environment:
+      discovery.type: single-node
+      DISABLE_INSTALL_DEMO_CONFIG: "true"
+      DISABLE_SECURITY_PLUGIN: "true"
+      OPENSEARCH_JAVA_OPTS: "-Xms512m -Xmx512m"
+      bootstrap.memory_lock: "false"
+      node.store.allow_mmap: "false"
+    volumes: ["opensearch_data:/usr/share/opensearch/data"]
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: [redis-server, --appendonly, "yes"]
+    volumes: ["redis_data:/data"]
+  migrate:
+    build: .
+    env_file: .env
+    command: [python, /app/scripts/migrate.py]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+  api:
+    build: .
+    env_file: .env
+    restart: unless-stopped
+    ports: ["127.0.0.1:${TRACE_PORT:-8000}:8000"]
+    volumes: ["evidence_data:/var/lib/trace/evidence"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+    read_only: true
+    tmpfs: [/tmp]
+    security_opt: ["no-new-privileges:true"]
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/ready', timeout=8)"]
+      interval: 20s
+      timeout: 10s
+      retries: 6
+      start_period: 30s
+volumes:
+  postgres_data:
+  neo4j_data:
+  opensearch_data:
+  redis_data:
+  evidence_data:
