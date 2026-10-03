@@ -32,3 +32,5 @@ Do not post keys, personal evidence or exploit data in a public issue. Contact t
 ## Historical reads
 
 Immutable temporal versions and PostgreSQL commit receipts are protected from application writes; capture/finalization use fixed-search-path database trigger/functions. Runtime has SELECT only on temporal internals. Current authorization still controls old snapshots: a historical artifact classification cannot bypass a later restriction. Public APIs do not provide historical withdrawn releases. A privileged DBA can still disable triggers or alter clocks; maintain independent checkpoints and time controls.
+
+Commit receipt identities include the originating PostgreSQL cluster, preventing reused transaction IDs after logical restore from backdating new assertions. Unresolved foreign receipts and unsafe transaction-ID ages stop historical reads. The cluster identity wrapper returns only the system identifier, using a fixed `pg_catalog` search path; its owner needs explicit provider permission for `pg_control_system()` where restricted.

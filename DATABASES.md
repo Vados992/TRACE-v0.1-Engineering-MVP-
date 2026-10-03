@@ -23,3 +23,5 @@ Filesystem objects use a SHA-256-derived key and atomic first-write behavior, wi
 ## Required bitemporal configuration
 
 PostgreSQL must run with `track_commit_timestamp=on` before migration 009. Updated dev/production/desktop Compose files configure it. For native/managed PostgreSQL enable the parameter and restart first, then migrate and re-provision runtime grants. Migration 009 captures 24 versioned tables, an immutable commit receipt cache and a pending receipt queue. Complete DB backups must include these. Read [TEMPORAL.md](TEMPORAL.md) before upgrading or querying old dates.
+
+Migration 010 namespaces XIDs by PostgreSQL's cluster system identifier. The migration/function owner needs permission to execute `pg_control_system()`; runtime uses a SECURITY DEFINER wrapper and keeps read-only ledger access. Confirm this capability with a managed provider. Logical restores preserve original namespace columns and cached commit dates; new writes use the destination cluster identity. Finalize pending receipts before a dump after quiescing writes. Unknown foreign receipts cannot be reconstructed from the destination transaction tracker.

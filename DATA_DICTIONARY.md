@@ -39,3 +39,5 @@ Exact columns, constraints and indexes are defined by `db/migrations/*.sql`; exe
 ## Temporal versions
 
 `temporal_versions`: immutable full row snapshots, table/UUID identity, operation and PostgreSQL xid8. `temporal_commits`: immutable actual transaction commit time, retained independently of PostgreSQL tracker pruning. `temporal_pending`: operational receipt finalization queue. `temporal_control`: immutable activation transaction defining the earliest exact knowledge snapshot. `known_at`: requested system cutoff; `known_from`: actual commit of the selected relationship version. `valid_from/valid_to`: independent fact validity. Baseline rows are never backdated.
+
+`cluster_id` on versions/commit receipts/pending receipts: PostgreSQL system identifier of the originating cluster, preserved on logical restore. Receipt keys are `(cluster_id, transaction_id)`; transaction IDs alone are not globally unique. `temporal_control.activation_cluster` preserves the baseline's originating identity. A new server's repeated XIDs cannot reuse another cluster's historical timestamps.

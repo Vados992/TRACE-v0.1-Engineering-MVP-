@@ -18,7 +18,7 @@ async def resolve_known_at(known_at: datetime | None = None) -> datetime:
             await conn.execute(
                 """SELECT clock_timestamp() AS current_time,c.committed_at AS history_available_from
                    FROM temporal_control t JOIN temporal_commits c
-                     ON c.transaction_id=t.activation_transaction"""
+                     ON c.transaction_id=t.activation_transaction AND c.cluster_id=t.activation_cluster"""
             )
         ).fetchone()
         if not row:

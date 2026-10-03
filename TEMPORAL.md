@@ -1,6 +1,6 @@
 # Bitemporal evidence and reconstruction
 
-Two independent clocks are enforced by migration 009 and the API:
+Two independent clocks are enforced by migrations 009–010 and the API:
 
 * **Valid time** (`valid_from`, `valid_to`, request `from_time`, `to_time`): when a source says a fact applied in the world. Unknown dates stay unknown and set temporal uncertainty.
 * **System knowledge time** (`known_at` in requests, `known_from` in graph results): when a transaction containing that version actually **committed in PostgreSQL**. Neither a publisher date, `retrieved_at`, parser execution time nor transaction start substitutes for this clock.
@@ -16,6 +16,8 @@ PostgreSQL must run with `track_commit_timestamp=on`. Compose enables this autom
 Snapshot queries select the last committed version of each record at or before `known_at`, breaking same-transaction ties by version order and excluding tombstones. Valid-time filtering is then applied to that snapshot. Claim status, entity labels, evidence, observation counts and source metadata come from the same knowledge cutoff. Path Finder pins one cutoff for the entire traversal; saved investigations retain that cutoff and their result. Conflict scans evaluate role, ownership, award and claim versions at one cutoff and retain it in the analysis evidence.
 
 The private API supports `known_at` for graph paths, investigations, entity search/detail, relationship provenance, claim detail, artifact retrieval, wealth history, conflict scanning/history and case lists/detail. Omitting it pins current database time for that operation. The analyst console exposes independent fact-period and knowledge-time controls; evidence buttons retain the cutoff of the displayed path. Current authorization always applies, including later evidence restrictions. Public release APIs deliberately serve current approved releases only; historical access must not republish withdrawn material.
+
+Migration 010 qualifies transaction IDs with the PostgreSQL cluster `system_identifier`. A logical restore into a new cluster preserves the original receipt namespace; new writes use the new cluster identity. Repeated XIDs cannot borrow old commit dates. Unfinalized foreign-cluster receipts and pending XIDs beyond the safe wraparound horizon fail closed. The migration/function owner needs permission to execute PostgreSQL's `pg_control_system()`; runtime obtains only the identity through a fixed-search-path SECURITY DEFINER wrapper. A managed provider must permit this operation before deployment.
 
 ## Query
 
@@ -43,6 +45,8 @@ Migration 009 snapshots existing current rows at its own commit. **It does not i
 For an existing native/managed PostgreSQL installation, enable `track_commit_timestamp=on`, restart PostgreSQL, then run migrations with the owner and re-provision runtime grants. Existing Docker installations use the updated Compose PostgreSQL command; `docker compose up --build -d --wait` recreates the service while preserving named volumes. Production uses its dedicated env file and Compose file. Do not delete volumes or edit previously applied migrations.
 
 Finalize receipts before DB backup, PostgreSQL upgrades, long maintenance and transaction-ID wraparound. A background operator job should run `python scripts/finalize_temporal.py` at least every minute when external SQL writers are used or the API is idle. Back up `temporal_versions`, `temporal_commits`, `temporal_control` and remaining database/evidence together. Source payloads and history contain private data and require the same legal retention/access controls as the original evidence; unlimited retention is not assumed. A DBA can disable triggers or alter the database clock; independent audit checkpoints and infrastructure clock controls remain required.
+
+For logical recovery, finalize receipts after quiescing writes and before taking the dump. Restore existing versions, receipts, baseline and cluster IDs without rewriting them; do not replace their namespace with the destination cluster identity. Physical recovery preserves the cluster identity. The namespace collision regression is executed in the disposable integration database; it is not a substitute for a complete deployment-specific restore drill.
 
 ## Executed regression coverage
 

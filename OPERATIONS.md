@@ -41,3 +41,5 @@ The current HTTP imports are synchronous and bounded; there is no persistent job
 ## Commit receipts and historical availability
 
 Before each database backup or PostgreSQL upgrade run `python scripts/finalize_temporal.py` with the target DSN, or `docker compose exec api python /app/scripts/finalize_temporal.py`. The API also finalizes automatically before reads and after writes. If external SQL writers operate while the API is idle, schedule receipt finalization at least every minute. Preserve temporal versions, receipts and the history baseline together in backup/restore. Missing tracker timestamps fail closed; do not fabricate replacement dates. See [TEMPORAL.md](TEMPORAL.md).
+
+Quiesce writes before finalizing and dumping for logical recovery. Migration 010 preserves origin cluster IDs alongside XIDs; retain these columns unchanged when restoring into a new cluster. Unfinalized foreign pending receipts are rejected because the destination cannot know their original commit times. The namespace collision regression passes in the disposable test database; operators must still execute a complete deployment-specific DB/vault restore drill.

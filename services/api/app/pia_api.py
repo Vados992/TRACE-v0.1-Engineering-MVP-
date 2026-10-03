@@ -242,7 +242,7 @@ async def temporal_status():
     async with connection() as conn:
         baseline = await one(
             conn,
-            "SELECT c.committed_at FROM temporal_control t JOIN temporal_commits c ON c.transaction_id=t.activation_transaction",
+            "SELECT c.committed_at FROM temporal_control t JOIN temporal_commits c ON c.transaction_id=t.activation_transaction AND c.cluster_id=t.activation_cluster",
         )
         return {
             "known_at": cutoff,

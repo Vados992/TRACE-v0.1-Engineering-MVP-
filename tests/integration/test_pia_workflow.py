@@ -245,6 +245,45 @@ def test_transaction_start_is_not_knowledge_time(client):
     assert len(historical_path(client, imported)["paths"]) == 1
 
 
+def test_restored_cluster_transaction_collision_does_not_backdate_new_facts(client):
+    from app.settings import settings
+
+    _, imported = temporal_import(client)
+    person = str(uuid4())
+    before = database_clock()
+    with psycopg.connect(settings.database_url) as conn:
+        transaction = conn.execute("SELECT pg_current_xact_id()::text").fetchone()[0]
+        # A logical restore can carry an old receipt with the same XID as a new write.
+        # This is confined to the disposable fixture database, never live evidence.
+        conn.execute(
+            "INSERT INTO temporal_commits(transaction_id,committed_at,cluster_id) VALUES (%s::xid8,'2010-01-01',%s)",
+            (transaction, "isolated-foreign-cluster:" + str(uuid4())),
+        )
+        conn.execute(
+            "INSERT INTO entities(id,entity_type,canonical_name,normalized_name,is_demo) VALUES (%s,'PERSON','Restore collision fixture','restore collision fixture',true)",
+            (person,),
+        )
+        claim = conn.execute(
+            "INSERT INTO claims(subject_entity_id,predicate,object_entity_id,valid_from,claim_type,verification_status) VALUES (%s,'OWNS',%s,'2024-01-01','FACT','UNVERIFIED') RETURNING id",
+            (person, imported["entity_ids"]["city"]),
+        ).fetchone()[0]
+        conn.execute(
+            "INSERT INTO relationships(subject_entity_id,relationship_type,object_entity_id,valid_from,claim_id) VALUES (%s,'OWNS',%s,'2024-01-01',%s)",
+            (person, imported["entity_ids"]["city"], claim),
+        )
+    imported["entity_ids"]["official"] = person
+    assert historical_path(client, imported, before)["paths"] == []
+    assert len(historical_path(client, imported)["paths"]) == 1
+    with psycopg.connect(settings.database_url) as conn:
+        receipts = conn.execute(
+            "SELECT cluster_id,committed_at FROM temporal_commits WHERE transaction_id=%s::xid8",
+            (transaction,),
+        ).fetchall()
+        cluster = conn.execute("SELECT trace_cluster_identity()").fetchone()[0]
+    assert len(receipts) == 2
+    assert next(stamp for identity, stamp in receipts if identity == cluster) > before
+
+
 def test_unavailable_future_and_naive_knowledge_cutoffs_are_rejected(client):
     from datetime import timedelta
 
