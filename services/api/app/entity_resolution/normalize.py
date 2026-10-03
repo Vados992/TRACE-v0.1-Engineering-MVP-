@@ -2,8 +2,27 @@ import re
 import unicodedata
 
 LEGAL_SUFFIXES = {
-    "ag", "sa", "sas", "sarl", "gmbh", "bv", "nv", "ltd", "limited", "plc", "llc",
-    "inc", "corp", "corporation", "spa", "srl", "oy", "ab", "as", "a/s", "se",
+    "ag",
+    "sa",
+    "sas",
+    "sarl",
+    "gmbh",
+    "bv",
+    "nv",
+    "ltd",
+    "limited",
+    "plc",
+    "llc",
+    "inc",
+    "corp",
+    "corporation",
+    "spa",
+    "srl",
+    "oy",
+    "ab",
+    "as",
+    "a/s",
+    "se",
 }
 
 

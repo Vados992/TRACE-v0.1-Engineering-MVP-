@@ -1,14 +1,14 @@
 from typing import Any
 from uuid import UUID
 
-from .entity_resolution.normalize import normalize_org_name, normalize_identifier
-from .parsers import extract_html_title, parse_gleif_record
+from .entity_resolution.normalize import normalize_identifier, normalize_org_name
 from .ingest_repository import (
     ensure_claim_with_source,
     ensure_document_version,
     ensure_entity,
     ensure_identifier,
 )
+from .parsers import extract_html_title, parse_gleif_record
 
 
 async def canonicalize_gleif(

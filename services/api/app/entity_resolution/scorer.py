@@ -33,18 +33,39 @@ def identifier_feature(left: ResolutionRecord, right: ResolutionRecord) -> tuple
 def score_records(left: ResolutionRecord, right: ResolutionRecord) -> ResolutionResult:
     # Safety invariant: person records are never auto-merged from name similarity alone.
     if left.entity_type != right.entity_type:
-        return ResolutionResult(score=0.0, decision="KEEP_SEPARATE", features={"type": 0.0}, reasons=["entity types differ"])
+        return ResolutionResult(
+            score=0.0,
+            decision="KEEP_SEPARATE",
+            features={"type": 0.0},
+            reasons=["entity types differ"],
+        )
 
     id_score, reasons = identifier_feature(left, right)
     if id_score < 0:
-        return ResolutionResult(score=0.0, decision="KEEP_SEPARATE", features={"identifier": 0.0}, reasons=reasons)
+        return ResolutionResult(
+            score=0.0, decision="KEEP_SEPARATE", features={"identifier": 0.0}, reasons=reasons
+        )
 
-    name_left = normalize_org_name(left.name) if left.entity_type == "ORGANIZATION" else normalize_text(left.name)
-    name_right = normalize_org_name(right.name) if right.entity_type == "ORGANIZATION" else normalize_text(right.name)
+    name_left = (
+        normalize_org_name(left.name)
+        if left.entity_type == "ORGANIZATION"
+        else normalize_text(left.name)
+    )
+    name_right = (
+        normalize_org_name(right.name)
+        if right.entity_type == "ORGANIZATION"
+        else normalize_text(right.name)
+    )
     name_score = similarity(name_left, name_right)
     address_score = similarity(normalize_text(left.address), normalize_text(right.address))
-    jurisdiction_score = 1.0 if left.jurisdiction_code and left.jurisdiction_code == right.jurisdiction_code else 0.0
-    date_score = 1.0 if left.incorporation_date and left.incorporation_date == right.incorporation_date else 0.0
+    jurisdiction_score = (
+        1.0 if left.jurisdiction_code and left.jurisdiction_code == right.jurisdiction_code else 0.0
+    )
+    date_score = (
+        1.0
+        if left.incorporation_date and left.incorporation_date == right.incorporation_date
+        else 0.0
+    )
 
     left_directors = {normalize_text(x) for x in left.directors}
     right_directors = {normalize_text(x) for x in right.directors}
@@ -92,4 +113,6 @@ def score_records(left: ResolutionRecord, right: ResolutionRecord) -> Resolution
     if date_score:
         reasons.append("same incorporation date")
 
-    return ResolutionResult(score=round(score, 6), decision=decision, features=features, reasons=reasons)
+    return ResolutionResult(
+        score=round(score, 6), decision=decision, features=features, reasons=reasons
+    )

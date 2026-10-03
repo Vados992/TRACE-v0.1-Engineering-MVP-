@@ -1,0 +1,12 @@
+{
+  "format": "trace", "dataset_id": "demo-role-1", "demo": true,
+  "license": "CC0 synthetic fixture", "legal_basis": "Synthetic demonstration; no real persons",
+  "payload": {
+    "entities": [
+      {"key": "official", "name": "Demo Official", "entity_type": "PERSON", "scheme": "DEMO-PERSON", "identifier": "OFFICIAL"},
+      {"key": "city", "name": "Demo City", "entity_type": "PUBLIC_BODY", "scheme": "DEMO-REG", "identifier": "CITY"}
+    ],
+    "relationships": [{"subject": "official", "object": "city", "relation": "HOLDS_ROLE_IN",
+                        "valid_from": "2024-01-01T00:00:00Z", "locator": "/appointments/0"}]
+  }
+}

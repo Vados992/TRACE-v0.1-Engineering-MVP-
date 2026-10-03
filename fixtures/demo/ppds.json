@@ -1,0 +1,10 @@
+{
+  "format": "ppds", "dataset_id": "demo-ppds-1", "demo": true,
+  "license": "CC0 synthetic fixture", "legal_basis": "Synthetic mapped export; no PPDS access claimed",
+  "payload": {"schema": "trace-procurement-export/1", "notices": [{
+    "id": "DEMO-PPDS-001", "publication_id": "DEMO-PPDS-001", "status": "AWARDED", "decision_date": "2025-07-01",
+    "buyer": {"scheme": "DEMO-REG", "id": "CITY", "name": "Demo City"},
+    "supplier": {"scheme": "DEMO-REG", "id": "SUPPLIER", "name": "Demo Supplier"},
+    "amount": "180000.00", "currency": "EUR"
+  }]}
+}

@@ -5,7 +5,9 @@ import psycopg
 from neo4j import AsyncGraphDatabase
 from psycopg.rows import dict_row
 
-DATABASE_URL = os.environ.get("DATABASE_URL", "postgresql://trace:trace_dev_only@localhost:5432/trace")
+DATABASE_URL = os.environ.get(
+    "DATABASE_URL", "postgresql://trace:trace_dev_only@localhost:5432/trace"
+)
 NEO4J_URI = os.environ.get("NEO4J_URI", "bolt://localhost:7687")
 NEO4J_USER = os.environ.get("NEO4J_USER", "neo4j")
 NEO4J_PASSWORD = os.environ.get("NEO4J_PASSWORD", "trace_graph_dev_only")
@@ -27,7 +29,9 @@ async def main() -> None:
     driver = AsyncGraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USER, NEO4J_PASSWORD))
     try:
         async with driver.session() as session:
-            await session.run("CREATE CONSTRAINT entity_id IF NOT EXISTS FOR (e:Entity) REQUIRE e.id IS UNIQUE")
+            await session.run(
+                "CREATE CONSTRAINT entity_id IF NOT EXISTS FOR (e:Entity) REQUIRE e.id IS UNIQUE"
+            )
             await session.run("MATCH (n) DETACH DELETE n")
             if entities:
                 await session.run(

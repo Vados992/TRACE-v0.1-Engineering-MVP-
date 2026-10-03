@@ -1,14 +1,15 @@
 from __future__ import annotations
 
-from datetime import date, datetime, timezone
+from datetime import date, datetime
 from decimal import Decimal
 from typing import Any
 from uuid import UUID
 
 from psycopg.types.json import Jsonb
 
-
 from .relationship_semantics import semantic_key
+
+
 async def ensure_relationship_from_observation(
     conn,
     *,
@@ -26,6 +27,7 @@ async def ensure_relationship_from_observation(
     verification_status: str = "VERIFIED_PRIMARY",
     evidence_strength: str = "E0",
     extraction_method: str = "TRACE_V03_RELATIONSHIP_BUILDER",
+    extractor_version: str = "trace-v0.3",
 ) -> tuple[UUID, UUID, bool]:
     if subject_entity_id == object_entity_id:
         raise ValueError("self relationships are not permitted")
@@ -96,8 +98,8 @@ async def ensure_relationship_from_observation(
             """INSERT INTO claim_evidence(
                    claim_id, source_record_id, extraction_method,
                    extractor_version, evidence_strength
-               ) VALUES (%s,%s,%s,'trace-v0.3',%s)""",
-            (claim_id, source_record_id, extraction_method, evidence_strength),
+               ) VALUES (%s,%s,%s,%s,%s)""",
+            (claim_id, source_record_id, extraction_method, extractor_version, evidence_strength),
         )
 
         created = existing_rel is None

@@ -1,4 +1,6 @@
+from datetime import datetime, timezone
 from decimal import Decimal
+from uuid import UUID
 
 from app.parsers import (
     celex_from_uri,
@@ -8,8 +10,6 @@ from app.parsers import (
     parse_ted_notice,
 )
 from app.relationship_semantics import semantic_key
-from uuid import UUID
-from datetime import datetime, timezone
 
 
 def test_parse_ted_notice_fields():
@@ -50,23 +50,34 @@ def test_pair_entities_is_positional_not_cartesian():
 
 
 def test_cellar_relation_allowlist():
-    rdf = '''<?xml version="1.0"?>
+    rdf = """<?xml version="1.0"?>
     <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
              xmlns:cdm="http://publications.europa.eu/ontology/cdm#">
       <rdf:Description rdf:about="http://publications.europa.eu/resource/celex/32026R0001">
         <cdm:work_amends_work rdf:resource="http://publications.europa.eu/resource/celex/32020R0002"/>
         <cdm:unknown_relation rdf:resource="http://publications.europa.eu/resource/celex/32019R0003"/>
       </rdf:Description>
-    </rdf:RDF>'''
+      <rdf:Description rdf:about="http://publications.europa.eu/resource/celex/OTHER">
+        <cdm:work_amends_work rdf:resource="http://publications.europa.eu/resource/celex/32019R0003"/>
+      </rdf:Description>
+    </rdf:RDF>"""
     relations = parse_cellar_legal_relations(rdf, "32026R0001")
     assert relations == [("AMENDS", "32020R0002")]
 
 
+def test_cellar_does_not_turn_proposals_or_annotations_into_enacted_relations():
+    rdf = """<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+        xmlns:cdm="http://publications.europa.eu/ontology/cdm#" xmlns:other="urn:annotation">
+      <rdf:Description rdf:about="http://publications.europa.eu/resource/celex/32026R0001">
+        <cdm:work_cited_by_work rdf:resource="http://publications.europa.eu/resource/celex/32020R0002"/>
+        <cdm:resource_legal_amendment_proposed_by_resource_legal rdf:resource="http://publications.europa.eu/resource/celex/32020R0003"/>
+        <other:work_amends_work rdf:resource="http://publications.europa.eu/resource/celex/32020R0004"/>
+      </rdf:Description></rdf:RDF>"""
+    assert parse_cellar_legal_relations(rdf, "32026R0001") == [("CITED_BY", "32020R0002")]
+
+
 def test_celex_from_uri():
-    assert (
-        celex_from_uri("http://publications.europa.eu/resource/celex/32016R0679")
-        == "32016R0679"
-    )
+    assert celex_from_uri("http://publications.europa.eu/resource/celex/32016R0679") == "32016R0679"
     assert celex_from_uri("https://example.com/no-celex") is None
 
 

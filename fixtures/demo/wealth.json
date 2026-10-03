@@ -1,0 +1,11 @@
+{
+  "entity_id": "00000000-0000-0000-0000-000000000000", "dataset_id": "demo-wealth-1", "demo": true,
+  "period_start": "2024-01-01", "period_end": "2025-01-01", "currency": "EUR",
+  "opening_net_worth": "100000.00", "closing_net_worth": "180000.00", "income": "60000.00",
+  "gifts": "0", "realized_gains": "0", "unrealized_gains": "10000", "expenses": "30000",
+  "taxes": "10000", "other_net": "0", "tolerance": "0.01",
+  "license": "CC0 synthetic fixture", "legal_basis": "Synthetic demonstration; no real financial records",
+  "locators": {"opening_net_worth": "/declarations/2024/net", "closing_net_worth": "/declarations/2025/net",
+    "income": "/income", "gifts": "/gifts", "realized_gains": "/gains/realized", "unrealized_gains": "/gains/unrealized",
+    "expenses": "/expenses", "taxes": "/taxes", "other_net": "/other"}
+}

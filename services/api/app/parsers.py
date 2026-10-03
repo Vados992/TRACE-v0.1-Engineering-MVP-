@@ -4,7 +4,8 @@ from dataclasses import dataclass
 from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 from html.parser import HTMLParser
-from typing import Any, Iterable
+from io import StringIO
+from typing import Any
 from urllib.parse import unquote
 from xml.etree import ElementTree as ET
 
@@ -63,7 +64,9 @@ def parse_gleif_record(payload: dict[str, Any]) -> dict[str, Any]:
         "status": entity.get("status"),
         "legal_address": legal_address,
         "headquarters_address": headquarters_address,
-        "registration_authority_id": registered_at.get("id") if isinstance(registered_at, dict) else None,
+        "registration_authority_id": registered_at.get("id")
+        if isinstance(registered_at, dict)
+        else None,
         "registered_as": entity.get("registeredAs"),
         "creation_date": entity.get("creationDate"),
     }
@@ -98,7 +101,9 @@ def _scalar(value: Any) -> str | None:
 def _strings(value: Any) -> list[str]:
     out: list[str] = []
     for item in _as_list(value):
-        if isinstance(item, dict) and not any(k in item for k in ("value", "name", "label", "text", "en")):
+        if isinstance(item, dict) and not any(
+            k in item for k in ("value", "name", "label", "text", "en")
+        ):
             for nested in item.values():
                 val = _scalar(nested)
                 if val:
@@ -166,10 +171,16 @@ class TedNoticeObservation:
 
 
 def parse_ted_notice(row: dict[str, Any]) -> TedNoticeObservation | None:
-    publication_number = _scalar(row.get("publication-number")) or _scalar(row.get("notice-identifier"))
+    publication_number = _scalar(row.get("publication-number")) or _scalar(
+        row.get("notice-identifier")
+    )
     if not publication_number:
         return None
-    title = _scalar(row.get("notice-title")) or _scalar(row.get("title-proc")) or f"TED notice {publication_number}"
+    title = (
+        _scalar(row.get("notice-title"))
+        or _scalar(row.get("title-proc"))
+        or f"TED notice {publication_number}"
+    )
     total_value = _decimal(row.get("result-value-notice"))
     if total_value is None:
         total_value = _decimal(row.get("total-value"))
@@ -193,7 +204,9 @@ def parse_ted_notice(row: dict[str, Any]) -> TedNoticeObservation | None:
     )
 
 
-def pair_entities(names: list[str], identifiers: list[str], countries: list[str]) -> list[dict[str, str | None]]:
+def pair_entities(
+    names: list[str], identifiers: list[str], countries: list[str]
+) -> list[dict[str, str | None]]:
     size = max(len(names), len(identifiers), len(countries), 0)
     if size == 0:
         return []
@@ -210,6 +223,20 @@ def pair_entities(names: list[str], identifiers: list[str], countries: list[str]
 RDF_NS = "http://www.w3.org/1999/02/22-rdf-syntax-ns#"
 
 CELLAR_RELATION_MAP = {
+    "cites": "CITES",
+    "cited_by": "CITED_BY",
+    "work_cited_by_work": "CITED_BY",
+    "amends": "AMENDS",
+    "amended_by": "AMENDED_BY",
+    "corrects": "CORRECTS",
+    "corrected_by": "CORRECTED_BY",
+    "resource_legal_corrected_by_resource_legal": "CORRECTED_BY",
+    "resource_legal_corrects_resource_legal": "CORRECTS",
+    "resource_legal_amended_by_resource_legal": "AMENDED_BY",
+    "resource_legal_amends_resource_legal": "AMENDS",
+    "basis_for": "BASIS_FOR",
+    "based_on": "BASED_ON",
+    "resource_legal_basis_for_resource_legal": "BASIS_FOR",
     "work_amends_work": "AMENDS",
     "work_is_amended_by_work": "AMENDED_BY",
     "work_cites_work": "CITES",
@@ -224,21 +251,7 @@ CELLAR_RELATION_MAP = {
 
 
 def _cellar_relation(local: str) -> str | None:
-    exact = CELLAR_RELATION_MAP.get(local)
-    if exact:
-        return exact
-    lowered = local.casefold()
-    if "amend" in lowered:
-        return "AMENDED_BY" if "is_amended_by" in lowered else "AMENDS"
-    if "cit" in lowered and ("cite" in lowered or "cited" in lowered):
-        return "CITED_BY" if "is_cited_by" in lowered else "CITES"
-    if "successor" in lowered:
-        return "SUCCESSOR_OF" if "successor_of" in lowered else "HAS_SUCCESSOR"
-    if "correct" in lowered:
-        return "CORRECTED_BY" if "is_corrected_by" in lowered else "CORRECTS"
-    if "basis" in lowered or "based_on" in lowered:
-        return "BASIS_FOR" if "is_basis_for" in lowered else "BASED_ON"
-    return None
+    return CELLAR_RELATION_MAP.get(local)
 
 
 def _local_name(tag: str) -> str:
@@ -260,19 +273,40 @@ def celex_from_uri(uri: str | None) -> str | None:
 
 
 def parse_cellar_legal_relations(rdf_xml: str, subject_celex: str) -> list[tuple[str, str]]:
+    relations = []
     try:
-        root = ET.fromstring(rdf_xml)
+        context = ET.iterparse(StringIO(rdf_xml), events=("start", "end"))
+        depth, root = 0, None
+        for event, node in context:
+            if event == "start":
+                depth += 1
+                if root is None:
+                    root = node
+                continue
+            if depth == 2:
+                about = node.attrib.get(f"{{{RDF_NS}}}about")
+                aliases = [
+                    v.attrib.get(f"{{{RDF_NS}}}resource")
+                    for v in node
+                    if v.tag == "{http://www.w3.org/2002/07/owl#}sameAs"
+                ]
+                matches = celex_from_uri(about) == subject_celex or any(
+                    celex_from_uri(v) == subject_celex for v in aliases
+                )
+                if matches:
+                    for element in node:
+                        if not element.tag.startswith(
+                            "{http://publications.europa.eu/ontology/cdm#}"
+                        ):
+                            continue
+                        relation = _cellar_relation(_local_name(element.tag))
+                        target = celex_from_uri(element.attrib.get(f"{{{RDF_NS}}}resource"))
+                        if relation and target and target != subject_celex:
+                            relations.append((relation, target))
+                node.clear()
+                root.clear()
+            depth -= 1
     except ET.ParseError as exc:
         raise ValueError("invalid Cellar RDF/XML") from exc
 
-    relations: list[tuple[str, str]] = []
-    for element in root.iter():
-        local = _local_name(element.tag)
-        relation = _cellar_relation(local)
-        if not relation:
-            continue
-        resource = element.attrib.get(f"{{{RDF_NS}}}resource")
-        target_celex = celex_from_uri(resource)
-        if target_celex and target_celex != subject_celex:
-            relations.append((relation, target_celex))
     return list(dict.fromkeys(relations))

@@ -16,7 +16,12 @@ from .entity_reconciliation import (
     save_source_mapping,
 )
 from .entity_resolution.normalize import normalize_identifier, normalize_org_name
-from .ingest_repository import ensure_identifier, get_source_id, upsert_raw_artifact, upsert_source_record
+from .ingest_repository import (
+    ensure_identifier,
+    get_source_id,
+    upsert_raw_artifact,
+    upsert_source_record,
+)
 from .models import LobbyingImportRequest, RelationshipBuildResult, TedSearchRequest
 from .object_store import EvidenceStore
 from .parsers import (
@@ -34,10 +39,21 @@ from .relationship_repository import (
 from .settings import settings
 
 TED_FIELDS = [
-    "publication-number", "notice-title", "procedure-identifier", "publication-date",
-    "buyer-name", "buyer-identifier", "buyer-country",
-    "winner-name", "winner-identifier", "winner-country", "winner-decision-date",
-    "result-value-notice", "result-value-cur-notice", "total-value", "total-value-cur",
+    "publication-number",
+    "notice-title",
+    "procedure-identifier",
+    "publication-date",
+    "buyer-name",
+    "buyer-identifier",
+    "buyer-country",
+    "winner-name",
+    "winner-identifier",
+    "winner-country",
+    "winner-decision-date",
+    "result-value-notice",
+    "result-value-cur-notice",
+    "total-value",
+    "total-value-cur",
 ]
 
 
@@ -60,16 +76,14 @@ class RelationshipIntelligenceService:
             raw = str(payload).encode()
         artifact = self.store.put_bytes(source, external_id, raw, media_type)
         source_id = await get_source_id(conn, source)
-        await upsert_raw_artifact(
-            conn, source_id, external_id, artifact, {"schema": schema}
-        )
+        await upsert_raw_artifact(conn, source_id, external_id, artifact, {"schema": schema})
         source_record_id = await upsert_source_record(
             conn,
             source_id=source_id,
             external_id=external_id,
             payload_hash=artifact.sha256,
             payload_uri=self.store.uri(artifact.object_key),
-            parser_version="trace-v0.3",
+            parser_version="trace-pia/0.4.0",
             schema_version=schema,
             raw_payload=None,
         )
@@ -88,9 +102,7 @@ class RelationshipIntelligenceService:
         return row["claim_id"]
 
     async def build_gleif_ownership(self, lei: str) -> RelationshipBuildResult:
-        connector = GleifConnector(
-            settings.gleif_base_url, settings.http_timeout_seconds
-        )
+        connector = GleifConnector(settings.gleif_base_url, settings.http_timeout_seconds)
         child_payload = await connector.get_lei(lei)
         parents = [
             (
@@ -179,9 +191,7 @@ class RelationshipIntelligenceService:
                         relationship_basis=basis,
                         valid_from=None,
                         valid_to=None,
-                        source_claim_id=await self._claim_id(
-                            conn, relationship_id
-                        ),
+                        source_claim_id=await self._claim_id(conn, relationship_id),
                     )
 
         return RelationshipBuildResult(
@@ -256,18 +266,14 @@ class RelationshipIntelligenceService:
             strong_scheme="TED_ORG_IDENTIFIER",
         )
 
-    async def build_ted_procurement(
-        self, request: TedSearchRequest
-    ) -> RelationshipBuildResult:
+    async def build_ted_procurement(self, request: TedSearchRequest) -> RelationshipBuildResult:
         connector = TedConnector(settings.ted_base_url, settings.http_timeout_seconds)
         effective = request.model_copy(
             update={"fields": list(dict.fromkeys([*request.fields, *TED_FIELDS]))}
         )
         payload = await connector.search(effective)
         rows = extract_ted_rows(payload)
-        fingerprint = connector.stable_json_hash(
-            effective.model_dump(mode="json")
-        )[:24]
+        fingerprint = connector.stable_json_hash(effective.model_dump(mode="json"))[:24]
 
         entities: list[UUID] = []
         relationships: list[UUID] = []
@@ -296,9 +302,7 @@ class RelationshipIntelligenceService:
                         entity_type="CONTRACT",
                         name=notice.notice_title,
                         jurisdiction_code=(
-                            notice.buyer_countries[0]
-                            if len(notice.buyer_countries) == 1
-                            else "EU"
+                            notice.buyer_countries[0] if len(notice.buyer_countries) == 1 else "EU"
                         ),
                         source_record_id=source_record_id,
                         strong_identifier=notice.publication_number,
@@ -360,9 +364,7 @@ class RelationshipIntelligenceService:
                             object_entity_id=notice_entity,
                             predicate="PROCUREMENT_BUYER",
                             valid_from=published_at,
-                            details={
-                                "publication_number": notice.publication_number
-                            },
+                            details={"publication_number": notice.publication_number},
                             verification_status="VERIFIED_PRIMARY",
                             evidence_strength="E0",
                             extraction_method="TED_V3_SEARCH_FIELDS",
@@ -391,19 +393,9 @@ class RelationshipIntelligenceService:
                             object_entity_id=winner,
                             predicate="PROCUREMENT_AWARD_WINNER",
                             valid_from=awarded_at,
-                            amount=(
-                                notice.total_value
-                                if len(winner_rows) == 1
-                                else None
-                            ),
-                            currency=(
-                                notice.currency
-                                if len(winner_rows) == 1
-                                else None
-                            ),
-                            details={
-                                "publication_number": notice.publication_number
-                            },
+                            amount=(notice.total_value if len(winner_rows) == 1 else None),
+                            currency=(notice.currency if len(winner_rows) == 1 else None),
+                            details={"publication_number": notice.publication_number},
                             verification_status="VERIFIED_PRIMARY",
                             evidence_strength="E0",
                             extraction_method="TED_V3_SEARCH_FIELDS",
@@ -435,10 +427,7 @@ class RelationshipIntelligenceService:
                         )
                         relationships.append(direct_rel)
 
-                        if (
-                            notice.total_value is not None
-                            and notice.currency
-                        ):
+                        if notice.total_value is not None and notice.currency:
                             flow_id = await ensure_money_flow(
                                 conn,
                                 payer_entity_id=buyers[0],
@@ -449,9 +438,7 @@ class RelationshipIntelligenceService:
                                 flow_state="AWARDED",
                                 award_date=notice.decision_date,
                                 contract_entity_id=notice_entity,
-                                source_claim_id=await self._claim_id(
-                                    conn, direct_rel
-                                ),
+                                source_claim_id=await self._claim_id(conn, direct_rel),
                             )
                             money_flows.append(flow_id)
                     elif notice.total_value is not None and winners:
@@ -482,16 +469,8 @@ class RelationshipIntelligenceService:
                                     notice.procedure_identifier,
                                     notice.publication_number,
                                     notice.decision_date,
-                                    (
-                                        notice.total_value
-                                        if len(winners) == 1
-                                        else None
-                                    ),
-                                    (
-                                        notice.currency
-                                        if len(winners) == 1
-                                        else None
-                                    ),
+                                    (notice.total_value if len(winners) == 1 else None),
+                                    (notice.currency if len(winners) == 1 else None),
                                     source_record_id,
                                     direct_rel,
                                     flow_id,
@@ -514,9 +493,7 @@ class RelationshipIntelligenceService:
             notes=notes,
         )
 
-    async def import_lobbying(
-        self, request: LobbyingImportRequest
-    ) -> RelationshipBuildResult:
+    async def import_lobbying(self, request: LobbyingImportRequest) -> RelationshipBuildResult:
         entities: list[UUID] = []
         relationships: list[UUID] = []
         records: list[UUID] = []
@@ -555,8 +532,7 @@ class RelationshipIntelligenceService:
                             conn,
                             source_code="EU_TR",
                             external_key=(
-                                "institution:"
-                                + normalize_org_name(item.institution_name)
+                                "institution:" + normalize_org_name(item.institution_name)
                             ),
                             entity_type="PUBLIC_BODY",
                             name=item.institution_name,
@@ -653,11 +629,7 @@ class RelationshipIntelligenceService:
                                 item.subject,
                                 item.declared_budget_min,
                                 item.declared_budget_max,
-                                (
-                                    item.currency.upper()[:3]
-                                    if item.currency
-                                    else None
-                                ),
+                                (item.currency.upper()[:3] if item.currency else None),
                                 source_record_id,
                                 lobbying_rel or meeting_rel,
                             ),
@@ -672,12 +644,8 @@ class RelationshipIntelligenceService:
             notes=notes,
         )
 
-    async def build_policy_lifecycle(
-        self, celex: str
-    ) -> RelationshipBuildResult:
-        connector = EurLexConnector(
-            settings.cellar_base_url, settings.http_timeout_seconds
-        )
+    async def build_policy_lifecycle(self, celex: str) -> RelationshipBuildResult:
+        connector = EurLexConnector(settings.cellar_base_url, settings.http_timeout_seconds)
         rdf = await connector.fetch_metadata_rdf(celex)
         text = str((rdf.payload or {}).get("text", ""))
         parsed = parse_cellar_legal_relations(text, celex)
@@ -689,7 +657,7 @@ class RelationshipIntelligenceService:
                 source_id, source_record_id = await self._persist(
                     conn,
                     "EURLEX",
-                    f"{celex}:rdf-tree",
+                    f"{celex}:rdf-tree:scope-v2",
                     text,
                     "CELLAR_RDF_TREE",
                     rdf.content_type or "application/rdf+xml",
@@ -733,7 +701,8 @@ class RelationshipIntelligenceService:
                             "subject_celex": celex,
                             "target_celex": target_celex,
                         },
-                        extraction_method="CELLAR_RDF_TREE",
+                        extraction_method="CELLAR_RDF_SUBJECT_SCOPE_V2",
+                        extractor_version="cellar-scope/2",
                     )
                     relationships.append(relationship_id)
 
@@ -760,10 +729,7 @@ class RelationshipIntelligenceService:
         notes = (
             []
             if parsed
-            else [
-                "No allow-listed Cellar legal relations found; "
-                "unknown predicates were ignored."
-            ]
+            else ["No allow-listed Cellar legal relations found; unknown predicates were ignored."]
         )
         return RelationshipBuildResult(
             layer="policy_lifecycle",
@@ -793,8 +759,6 @@ async def reconciliation_summary() -> dict[str, int]:
                 ("source_mappings", "source_entity_mappings", ""),
                 ("relationship_observations", "relationship_observations", ""),
             ):
-                await cur.execute(
-                    f"SELECT count(*) AS n FROM {table}{where}"
-                )
+                await cur.execute(f"SELECT count(*) AS n FROM {table}{where}")
                 counts[key] = (await cur.fetchone())["n"]
     return counts

@@ -3,14 +3,31 @@ from decimal import Decimal
 from typing import Any, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, Field
-
+from pydantic import AwareDatetime, BaseModel, Field, model_validator
 
 EntityType = Literal[
-    "PERSON", "ORGANIZATION", "PUBLIC_BODY", "POLICY", "LEGAL_ACT", "PROGRAMME",
-    "CONTRACT", "TENDER", "AWARD", "GRANT", "PAYMENT", "FUND", "ASSET", "MEETING",
-    "LOBBY_ACTIVITY", "ROLE", "DECLARATION", "EVENT", "DOCUMENT", "SOURCE",
-    "JURISDICTION", "SECTOR",
+    "PERSON",
+    "ORGANIZATION",
+    "PUBLIC_BODY",
+    "POLICY",
+    "LEGAL_ACT",
+    "PROGRAMME",
+    "CONTRACT",
+    "TENDER",
+    "AWARD",
+    "GRANT",
+    "PAYMENT",
+    "FUND",
+    "ASSET",
+    "MEETING",
+    "LOBBY_ACTIVITY",
+    "ROLE",
+    "DECLARATION",
+    "EVENT",
+    "DOCUMENT",
+    "SOURCE",
+    "JURISDICTION",
+    "SECTOR",
 ]
 
 
@@ -59,10 +76,19 @@ class TedSearchRequest(BaseModel):
     query: str = Field(min_length=1)
     fields: list[str] = Field(
         default_factory=lambda: [
-            "publication-number", "notice-title", "procedure-identifier", "publication-date",
-            "buyer-name", "buyer-identifier", "buyer-country",
-            "winner-name", "winner-identifier", "winner-country", "winner-decision-date",
-            "result-value-notice", "result-value-cur-notice",
+            "publication-number",
+            "notice-title",
+            "procedure-identifier",
+            "publication-date",
+            "buyer-name",
+            "buyer-identifier",
+            "buyer-country",
+            "winner-name",
+            "winner-identifier",
+            "winner-country",
+            "winner-decision-date",
+            "result-value-notice",
+            "result-value-cur-notice",
         ]
     )
     page: int = Field(default=1, ge=1)
@@ -96,11 +122,17 @@ class IngestResult(BaseModel):
 class GraphPathRequest(BaseModel):
     source_entity_id: UUID
     target_entity_id: UUID
-    from_time: datetime | None = None
-    to_time: datetime | None = None
-    max_depth: int = Field(default=6, ge=1, le=8)
+    from_time: AwareDatetime | None = None
+    to_time: AwareDatetime | None = None
+    max_depth: int = Field(default=6, ge=1, le=6)
     limit: int = Field(default=10, ge=1, le=50)
     verified_only: bool = True
+
+    @model_validator(mode="after")
+    def interval(self):
+        if self.from_time and self.to_time and self.from_time > self.to_time:
+            raise ValueError("from_time must precede to_time")
+        return self
 
 
 class InvestigationRequest(GraphPathRequest):

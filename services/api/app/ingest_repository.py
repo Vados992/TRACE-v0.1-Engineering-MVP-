@@ -13,7 +13,9 @@ async def get_source_id(conn, code: str) -> UUID:
     return row["id"]
 
 
-async def create_ingest_job(conn, source_id: UUID, job_type: str, request_payload: dict[str, Any]) -> UUID:
+async def create_ingest_job(
+    conn, source_id: UUID, job_type: str, request_payload: dict[str, Any]
+) -> UUID:
     async with conn.cursor() as cur:
         await cur.execute(
             """INSERT INTO ingest_jobs(source_id, job_type, request_payload, status)
@@ -41,7 +43,9 @@ async def finish_ingest_job(
         )
 
 
-async def upsert_raw_artifact(conn, source_id: UUID, external_id: str, artifact, metadata: dict[str, Any]) -> UUID:
+async def upsert_raw_artifact(
+    conn, source_id: UUID, external_id: str, artifact, metadata: dict[str, Any]
+) -> UUID:
     async with conn.cursor() as cur:
         await cur.execute(
             """INSERT INTO raw_artifacts(
@@ -107,6 +111,10 @@ async def ensure_entity(
     identifier_value: str,
 ) -> UUID:
     async with conn.cursor() as cur:
+        await cur.execute(
+            "SELECT pg_advisory_xact_lock(hashtextextended(%s,0))",
+            (identifier_scheme + ":" + identifier_value,),
+        )
         await cur.execute(
             """SELECT e.id FROM entities e
                JOIN entity_identifiers i ON i.entity_id=e.id
@@ -229,7 +237,14 @@ async def ensure_document_version(
                ON CONFLICT (source_id, external_document_id)
                DO UPDATE SET title=EXCLUDED.title, canonical_uri=EXCLUDED.canonical_uri
                RETURNING id""",
-            (source_id, external_document_id, document_type, title, issuer_entity_id, canonical_uri),
+            (
+                source_id,
+                external_document_id,
+                document_type,
+                title,
+                issuer_entity_id,
+                canonical_uri,
+            ),
         )
         document_id = (await cur.fetchone())["id"]
         await cur.execute(

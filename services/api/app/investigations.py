@@ -1,6 +1,6 @@
+from .investigation_repository import create_investigation, finish_investigation
 from .models import InvestigationRequest, InvestigationResult
 from .pathfinder import find_paths
-from .investigation_repository import create_investigation, finish_investigation
 from .repository import get_entity
 
 

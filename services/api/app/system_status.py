@@ -1,4 +1,5 @@
 """Readiness and inventory; availability does not imply an upstream refresh."""
+
 import asyncio
 from datetime import datetime, timezone
 from urllib.parse import urlsplit
@@ -16,7 +17,7 @@ async def database_check():
         async with conn.cursor() as cur:
             await cur.execute("SELECT count(*) AS count FROM schema_migrations")
             count = (await cur.fetchone())["count"]
-            if count < 5:
+            if count < 8:
                 raise RuntimeError("missing migrations")
     return {"migrations": count}
 
@@ -42,7 +43,8 @@ async def redis_check():
 
 async def graph_check():
     async with AsyncGraphDatabase.driver(
-        settings.neo4j_uri, auth=(settings.neo4j_user, settings.neo4j_password),
+        settings.neo4j_uri,
+        auth=(settings.neo4j_user, settings.neo4j_password),
         connection_timeout=3,
     ) as driver:
         await driver.verify_connectivity()
@@ -70,17 +72,54 @@ async def checked(name, function, required):
 async def readiness(full=False):
     probes = [("postgres", database_check, True), ("evidence", evidence_check, True)]
     if full:
-        probes += [("neo4j", graph_check, False), ("redis", redis_check, False),
-                   ("opensearch", search_check, False)]
+        probes += [
+            ("neo4j", graph_check, False),
+            ("redis", redis_check, False),
+            ("opensearch", search_check, False),
+        ]
     components = dict(await asyncio.gather(*(checked(*item) for item in probes)))
     ready = all(v["status"] == "ok" for v in components.values() if v["required"])
-    return {"status": "ready" if ready else "unavailable", "components": components,
-            "checked_at": datetime.now(timezone.utc).isoformat()}
+    return {
+        "status": "ready" if ready else "unavailable",
+        "components": components,
+        "checked_at": datetime.now(timezone.utc).isoformat(),
+    }
 
 
 CONNECTORS = [
-    {"code": "GLEIF", "mode": "live", "scope": "LEI and accounting parent relationships"},
-    {"code": "TED", "mode": "live", "scope": "procurement notices and explicit award amounts"},
-    {"code": "EURLEX", "mode": "live", "scope": "Cellar legal metadata and CELEX relations"},
-    {"code": "EU_TRANSPARENCY", "mode": "file_import", "scope": "official exports normalized to documented JSON"},
+    {
+        "code": "GLEIF",
+        "mode": "live_https",
+        "scope": "LEI and accounting parent relationships; not natural-person beneficial ownership",
+    },
+    {
+        "code": "TED",
+        "mode": "live_https",
+        "scope": "procurement notices and explicit award amounts; access not certified",
+    },
+    {
+        "code": "EURLEX",
+        "mode": "live_https",
+        "scope": "Cellar legal metadata and CELEX relations",
+    },
+    {
+        "code": "EU_TRANSPARENCY",
+        "mode": "file_import",
+        "scope": "official exports normalized to documented JSON",
+    },
+    {
+        "code": "OCDS",
+        "mode": "live_https_and_file",
+        "scope": "Find a Tender and OCDS 1.1 release package subset",
+    },
+    {
+        "code": "BODS",
+        "mode": "live_publisher_snapshot_and_file",
+        "scope": "Open Ownership bounded real ZIP prefix; BODS 0.3/0.4 subsets; not a complete/current registry",
+    },
+    {
+        "code": "PPDS",
+        "mode": "configured_https_and_file",
+        "scope": "operator mapping; credentials/legal access required for institutional sources",
+    },
 ]

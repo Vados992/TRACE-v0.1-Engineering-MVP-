@@ -9,8 +9,14 @@ def org(**kwargs):
 
 
 def test_exact_lei_auto_merge():
-    left = org(name="Example AG", jurisdiction_code="DE", identifiers={"LEI": "529900TESTTESTTEST00"})
-    right = org(name="Example Aktiengesellschaft", jurisdiction_code="DE", identifiers={"LEI": "529900TESTTESTTEST00"})
+    left = org(
+        name="Example AG", jurisdiction_code="DE", identifiers={"LEI": "529900TESTTESTTEST00"}
+    )
+    right = org(
+        name="Example Aktiengesellschaft",
+        jurisdiction_code="DE",
+        identifiers={"LEI": "529900TESTTESTTEST00"},
+    )
     result = score_records(left, right)
     assert result.decision == "AUTO_MERGE"
     assert result.score >= 0.98

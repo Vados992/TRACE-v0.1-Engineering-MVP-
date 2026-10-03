@@ -1,0 +1,19 @@
+{
+  "format": "bods", "dataset_id": "demo-bods-1", "demo": true,
+  "license": "CC0 synthetic fixture", "legal_basis": "Synthetic demonstration; no real persons",
+  "payload": [
+    {"statementID": "person-1", "statementType": "personStatement", "statementDate": "2025-01-01",
+     "publicationDetails": {"publicationDate": "2025-01-01", "bodsVersion": "0.3", "publisher": {"name": "Demo"}},
+     "personType": "knownPerson", "names": [{"type": "individual", "fullName": "Demo Official"}],
+     "identifiers": [{"scheme": "DEMO-PERSON", "id": "OFFICIAL"}]},
+    {"statementID": "company-1", "statementType": "entityStatement", "statementDate": "2025-01-01",
+     "publicationDetails": {"publicationDate": "2025-01-01", "bodsVersion": "0.3", "publisher": {"name": "Demo"}},
+     "entityType": "registeredEntity", "name": "Demo Supplier", "identifiers": [{"scheme": "DEMO-REG", "id": "SUPPLIER"}]},
+    {"statementID": "ownership-1", "statementType": "ownershipOrControlStatement", "statementDate": "2025-01-01",
+     "publicationDetails": {"publicationDate": "2025-01-01", "bodsVersion": "0.3", "publisher": {"name": "Demo"}},
+     "subject": {"describedByEntityStatement": "company-1"},
+     "interestedParty": {"describedByPersonStatement": "person-1"},
+     "interests": [{"type": "shareholding", "directOrIndirect": "direct", "isBeneficialOwnershipOrControl": true,
+                    "startDate": "2024-01-01", "share": {"exact": 40}}]}
+  ]
+}

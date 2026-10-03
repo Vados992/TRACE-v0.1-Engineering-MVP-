@@ -1,7 +1,7 @@
 from typing import Any
 
-from .base import BaseConnector
 from ..models import TedSearchRequest
+from .base import BaseConnector
 
 
 class TedConnector(BaseConnector):

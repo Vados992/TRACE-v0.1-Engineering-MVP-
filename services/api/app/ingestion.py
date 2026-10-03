@@ -5,8 +5,6 @@ from .connectors.eurlex import EurLexConnector
 from .connectors.gleif import GleifConnector
 from .connectors.ted import TedConnector
 from .db import connection
-from .models import IngestResult, TedSearchRequest
-from .object_store import EvidenceStore
 from .ingest_repository import (
     create_ingest_job,
     finish_ingest_job,
@@ -14,6 +12,8 @@ from .ingest_repository import (
     upsert_raw_artifact,
     upsert_source_record,
 )
+from .models import IngestResult, TedSearchRequest
+from .object_store import EvidenceStore
 from .settings import settings
 
 
@@ -64,9 +64,7 @@ class IngestionService:
         document = await connector.fetch_by_celex(celex, language)
         text = str((document.payload or {}).get("text", ""))
         raw = text.encode("utf-8")
-        artifact = self.store.put_bytes(
-            "EURLEX", celex, raw, document.content_type or "text/html"
-        )
+        artifact = self.store.put_bytes("EURLEX", celex, raw, document.content_type or "text/html")
 
         async with connection() as conn:
             async with conn.transaction():
@@ -122,9 +120,7 @@ class IngestionService:
         connector = TedConnector(settings.ted_base_url, settings.http_timeout_seconds)
         payload = await connector.search(request)
         raw = json.dumps(payload, sort_keys=True, ensure_ascii=False).encode("utf-8")
-        request_fingerprint = connector.stable_json_hash(
-            request.model_dump(mode="json")
-        )[:24]
+        request_fingerprint = connector.stable_json_hash(request.model_dump(mode="json"))[:24]
         external_id = f"search-{request_fingerprint}"
         artifact = self.store.put_bytes("TED", external_id, raw, "application/json")
 

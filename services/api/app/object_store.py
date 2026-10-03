@@ -1,9 +1,9 @@
-from dataclasses import dataclass
-from io import BytesIO
 import hashlib
 import os
-from pathlib import Path
 import tempfile
+from dataclasses import dataclass
+from io import BytesIO
+from pathlib import Path
 
 from minio import Minio
 from minio.error import S3Error
@@ -22,7 +22,7 @@ class StoredArtifact:
 class EvidenceStore:
     def __init__(self) -> None:
         self.backend = settings.evidence_backend
-        self.directory = Path(settings.evidence_directory)
+        self.directory = Path(settings.evidence_directory).resolve()
         if self.backend == "filesystem":
             self.client = None
             self.bucket = "local"
@@ -43,8 +43,22 @@ class EvidenceStore:
             self.client.make_bucket(self.bucket)
 
     def _path(self, key: str) -> Path:
+        def comparable(value):
+            value = os.path.normcase(str(value))
+            # Windows realpath may retain the extended prefix during concurrent path creation.
+            if value.startswith("\\\\?\\unc\\"):
+                value = "\\\\" + value[8:]
+            elif value.startswith("\\\\?\\"):
+                value = value[4:]
+            return os.path.normpath(value)
+
+        root = comparable(self.directory)
         path = (self.directory / key).resolve()
-        if not path.is_relative_to(self.directory.resolve()):
+        try:
+            inside = os.path.commonpath([root, comparable(path)]) == root
+        except ValueError:
+            inside = False
+        if not inside:
             raise ValueError("invalid evidence key")
         return path
 
@@ -80,9 +94,7 @@ class EvidenceStore:
         media_type: str = "application/octet-stream",
     ) -> StoredArtifact:
         digest = hashlib.sha256(payload).hexdigest()
-        safe_external = "".join(
-            c if c.isalnum() or c in "._-" else "_" for c in external_id
-        )[:180]
+        safe_external = "".join(c if c.isalnum() or c in "._-" else "_" for c in external_id)[:180]
         safe_source = "".join(c for c in source_code.lower() if c.isalnum() or c == "_")
         if not safe_source:
             raise ValueError("invalid source code")
@@ -112,6 +124,7 @@ class EvidenceStore:
             return StoredArtifact(key, digest, len(payload), media_type)
         try:
             self.client.stat_object(self.bucket, key)
+            self.get_bytes(key, digest)
         except S3Error as exc:
             if exc.code not in {"NoSuchKey", "NoSuchObject", "NoSuchBucket"}:
                 raise

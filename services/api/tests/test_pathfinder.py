@@ -1,9 +1,7 @@
 from uuid import UUID
 
-import pytest
-
 import app.pathfinder as pathfinder
-
+import pytest
 
 A = UUID("00000000-0000-0000-0000-000000000001")
 B = UUID("00000000-0000-0000-0000-000000000002")

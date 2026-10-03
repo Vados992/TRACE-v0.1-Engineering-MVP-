@@ -3,10 +3,14 @@ import os
 from pathlib import Path
 
 import psycopg
+from dotenv import load_dotenv
 
 ROOT = Path(__file__).resolve().parents[1]
+load_dotenv(ROOT / ".env")
 MIGRATIONS = ROOT / "db" / "migrations"
-DATABASE_URL = os.environ.get("DATABASE_URL", "postgresql://trace:trace_dev_only@localhost:5432/trace")
+DATABASE_URL = os.environ.get(
+    "DATABASE_URL", "postgresql://trace:trace_dev_only@localhost:5432/trace"
+)
 
 
 def checksum(data: bytes) -> str:
@@ -19,6 +23,8 @@ def main() -> None:
         raise SystemExit("no migrations found")
 
     with psycopg.connect(DATABASE_URL, autocommit=True) as conn:
+        # Session lock prevents two deployment jobs applying the same migration concurrently.
+        conn.execute("SELECT pg_advisory_lock(7450208)")
         conn.execute(
             """CREATE TABLE IF NOT EXISTS schema_migrations (
                  version TEXT PRIMARY KEY,
@@ -26,13 +32,22 @@ def main() -> None:
                  checksum TEXT NOT NULL
                )"""
         )
-        applied = {row[0]: row[1] for row in conn.execute("SELECT version, checksum FROM schema_migrations")}
+        applied = {
+            row[0]: row[1]
+            for row in conn.execute("SELECT version, checksum FROM schema_migrations")
+        }
         for path in paths:
             data = path.read_bytes()
-            digest = checksum(data)
+            canonical = data.replace(b"\r\n", b"\n")
+            digest = checksum(canonical)
             version = path.name
             if version in applied:
-                if applied[version] != digest:
+                # Earlier versions hashed OS-specific checkout bytes. Accept only line-ending variants.
+                if applied[version] not in {
+                    digest,
+                    checksum(data),
+                    checksum(canonical.replace(b"\n", b"\r\n")),
+                }:
                     raise SystemExit(f"migration checksum mismatch: {version}")
                 print(f"skip {version}")
                 continue
@@ -43,6 +58,7 @@ def main() -> None:
                     "INSERT INTO schema_migrations(version, checksum) VALUES (%s, %s)",
                     (version, digest),
                 )
+        conn.execute("SELECT pg_advisory_unlock(7450208)")
 
 
 if __name__ == "__main__":

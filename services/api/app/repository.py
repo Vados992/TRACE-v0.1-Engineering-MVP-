@@ -3,15 +3,23 @@ from uuid import UUID
 from .db import connection
 
 
-async def search_entities(q: str, entity_type: str | None, limit: int = 25):
+async def search_entities(
+    q: str, entity_type: str | None, limit: int = 25, include_demo: bool = False
+):
     normalized = " ".join(q.lower().split())
-    params = {"q": normalized, "limit": limit, "entity_type": entity_type}
+    params = {
+        "q": normalized,
+        "limit": limit,
+        "entity_type": entity_type,
+        "include_demo": include_demo,
+    }
     type_clause = "AND entity_type = %(entity_type)s" if entity_type else ""
     sql = f"""
         SELECT id, entity_type, canonical_name, jurisdiction_code, status,
                similarity(normalized_name, %(q)s) AS similarity
         FROM entities
         WHERE (normalized_name %% %(q)s OR normalized_name LIKE '%%' || %(q)s || '%%')
+          AND (NOT is_demo OR %(include_demo)s)
           {type_clause}
         ORDER BY similarity DESC, canonical_name
         LIMIT %(limit)s

@@ -1,9 +1,15 @@
-from .base import BaseConnector
 from ..models import ExternalDocument
+from ..settings import settings
+from .base import BaseConnector
 
 
 class EurLexConnector(BaseConnector):
     source_code = "EURLEX"
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.max_response_bytes = settings.cellar_max_response_bytes
+        self.capture_responses = False
 
     async def fetch_by_celex(self, celex: str, language: str = "eng") -> ExternalDocument:
         url = f"{self.base_url}/{celex}"
