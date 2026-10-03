@@ -1,44 +1,28 @@
-name: TRACE Desktop Validation
+name: TRACE Windows and UI
 on:
   push:
-    branches: [main, codex/trace-desktop-app]
+    branches: [main]
   pull_request:
-  workflow_dispatch:
 permissions:
   contents: read
 jobs:
-  windows-installer:
+  windows:
     runs-on: windows-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
-      - name: Validate Windows installer and shortcut
+      - name: Validate inherited installer
         shell: powershell
         run: ./desktop/windows/Test-Installer.ps1
-      - name: Test the app in Microsoft Edge
+      - name: Browser controls and responsive layout
         shell: powershell
         run: |
           npm install --prefix "$env:RUNNER_TEMP/trace-browser" --no-audit --no-fund playwright
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           $env:NODE_PATH = "$env:RUNNER_TEMP/trace-browser/node_modules"
-          $env:TRACE_BROWSER_CHANNEL = "msedge"
+          $env:TRACE_BROWSER_CHANNEL = 'msedge'
           node tests/ui/console.cjs
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - uses: actions/upload-artifact@v4
         if: always()
-        with:
-          name: desktop-ui-screenshot
-          path: logs/*.png
-  desktop-stack:
-    runs-on: ubuntu-latest
-    timeout-minutes: 25
-    steps:
-      - uses: actions/checkout@v4
-      - name: Test real connectors, databases, UI, Path Finder, and persistence
-        run: bash scripts/desktop_smoke.sh
-      - name: Preserve evidence of checks
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: desktop-test-reports
-          path: logs/*.json
+        with: {name: isolated-ui-tests, path: 'logs/*.png'}

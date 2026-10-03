@@ -10,3 +10,10 @@ htmlcov/
 logs/
 dist/
 .trace-desktop
+.runtime/
+.artifacts/
+*.egg-info/
+evidence/
+.production-keys.json
+.env.production
+backups/

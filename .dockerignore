@@ -8,3 +8,9 @@ logs
 dist
 *.zip
 *.egg-info
+.runtime
+.artifacts
+evidence
+.production-keys.json
+.env.production
+backups

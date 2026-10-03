@@ -1,0 +1,84 @@
+name: trace-pia-production
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: trace
+      POSTGRES_USER: trace_owner
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set a random URL-safe migration-owner password}
+    volumes: ["postgres_data:/var/lib/postgresql/data"]
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U trace_owner -d trace"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+  migrate:
+    build: .
+    environment:
+      DATABASE_URL: postgresql://trace_owner:${POSTGRES_PASSWORD}@postgres:5432/trace
+    command: [python, /app/scripts/migrate.py]
+    depends_on:
+      postgres: {condition: service_healthy}
+  provision:
+    build: .
+    environment:
+      MIGRATION_DATABASE_URL: postgresql://trace_owner:${POSTGRES_PASSWORD}@postgres:5432/trace
+      TRACE_RUNTIME_PASSWORD: ${TRACE_RUNTIME_PASSWORD:?Generate a random 32+ character URL-safe password}
+    command: [python, /app/scripts/provision_runtime.py]
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+  api:
+    build: .
+    restart: unless-stopped
+    environment:
+      TRACE_ENV: production
+      AUTH_KEYS_JSON: ${AUTH_KEYS_JSON:?Run scripts/generate_keys.py; no demo keys allowed}
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS:-["localhost","127.0.0.1","api"]}
+      DATABASE_URL: postgresql://trace_runtime:${TRACE_RUNTIME_PASSWORD}@postgres:5432/trace
+      EVIDENCE_BACKEND: ${EVIDENCE_BACKEND:-filesystem}
+      EVIDENCE_DIRECTORY: /var/lib/trace/evidence
+      MINIO_ENDPOINT: ${MINIO_ENDPOINT:-objectstore:4566}
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-unused}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-unused}
+      MINIO_BUCKET: ${MINIO_BUCKET:-trace-evidence}
+      MINIO_SECURE: ${MINIO_SECURE:-false}
+      OCDS_BASE_URL: ${OCDS_BASE_URL:-https://www.find-tender.service.gov.uk/api/1.0/ocdsReleasePackages}
+      OPENOWNERSHIP_ARCHIVE_URL: ${OPENOWNERSHIP_ARCHIVE_URL:-https://oo-bodsdata.s3.amazonaws.com/data/uk_version_0_4/json.zip}
+      BODS_DATASET_URL: ${BODS_DATASET_URL:-}
+      PPDS_DATASET_URL: ${PPDS_DATASET_URL:-}
+      BODS_TOKEN_ENV: ${BODS_TOKEN_ENV:-BODS_SOURCE_TOKEN}
+      PPDS_TOKEN_ENV: ${PPDS_TOKEN_ENV:-PPDS_SOURCE_TOKEN}
+      BODS_SOURCE_TOKEN: ${BODS_SOURCE_TOKEN:-}
+      PPDS_SOURCE_TOKEN: ${PPDS_SOURCE_TOKEN:-}
+    ports: ["127.0.0.1:${TRACE_PORT:-8000}:8000"]
+    volumes: ["evidence_data:/var/lib/trace/evidence"]
+    depends_on:
+      provision: {condition: service_completed_successfully}
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    pids_limit: 128
+    mem_limit: 1g
+    cpus: 2
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/ready', timeout=8)"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+  public-gateway:
+    image: nginxinc/nginx-unprivileged:1.28-alpine
+    restart: unless-stopped
+    ports: ["127.0.0.1:${PUBLIC_PORT:-8080}:8080"]
+    volumes: ["./deploy/public-nginx.conf:/etc/nginx/conf.d/default.conf:ro"]
+    depends_on:
+      api: {condition: service_healthy}
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+volumes:
+  postgres_data:
+  evidence_data:

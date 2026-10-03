@@ -1,97 +1,74 @@
+name: trace-pia-dev
 services:
   postgres:
     image: postgres:17-alpine
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-trace}
-      POSTGRES_USER: ${POSTGRES_USER:-trace}
+      POSTGRES_DB: trace
+      POSTGRES_USER: trace
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-trace_dev_only}
-    ports:
-      - "127.0.0.1:5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
+    ports: ["127.0.0.1:${POSTGRES_PORT:-5432}:5432"]
+    volumes: ["postgres_data:/var/lib/postgresql/data"]
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-trace} -d ${POSTGRES_DB:-trace}"]
-      interval: 5s
+      test: [CMD-SHELL, "pg_isready -U trace -d trace"]
+      interval: 3s
       timeout: 3s
-      retries: 20
-
-  neo4j:
-    image: neo4j:5-community
-    environment:
-      NEO4J_AUTH: ${NEO4J_USER:-neo4j}/${NEO4J_PASSWORD:-trace_graph_dev_only}
-      NEO4J_server_memory_heap_initial__size: 256m
-      NEO4J_server_memory_heap_max__size: 512m
-    ports:
-      - "127.0.0.1:7474:7474"
-      - "127.0.0.1:7687:7687"
-    volumes:
-      - neo4j_data:/data
-
-  opensearch:
-    image: opensearchproject/opensearch:2
-    environment:
-      discovery.type: single-node
-      DISABLE_INSTALL_DEMO_CONFIG: "true"
-      DISABLE_SECURITY_PLUGIN: "true"
-      OPENSEARCH_JAVA_OPTS: "-Xms512m -Xmx512m"
-    ports:
-      - "127.0.0.1:9200:9200"
-    volumes:
-      - opensearch_data:/usr/share/opensearch/data
-
-  redis:
-    image: redis:7-alpine
-    command: ["redis-server", "--appendonly", "yes"]
-    ports:
-      - "127.0.0.1:6379:6379"
-    volumes:
-      - redis_data:/data
-
-  minio:
-    # S3-compatible development object store. The service name remains "minio"
-    # for backward-compatible internal DNS/configuration.
-    image: localstack/localstack:4.14.0
-    environment:
-      SERVICES: s3
-      AWS_DEFAULT_REGION: us-east-1
-      PERSISTENCE: "1"
-    ports:
-      - "127.0.0.1:9000:4566"
-    volumes:
-      - minio_data:/var/lib/localstack
-
+      retries: 30
   migrate:
     build: .
-    env_file:
-      - .env
-    command: ["python", "/app/scripts/migrate.py"]
+    environment:
+      DATABASE_URL: postgresql://trace:${POSTGRES_PASSWORD:-trace_dev_only}@postgres:5432/trace
+    command: [python, /app/scripts/migrate.py]
     depends_on:
-      postgres:
-        condition: service_healthy
+      postgres: {condition: service_healthy}
     restart: "no"
-
   api:
     build: .
-    env_file:
-      - .env
-    ports:
-      - "127.0.0.1:8000:8000"
+    env_file: .env
+    environment:
+      TRACE_ENV: dev
+      DATABASE_URL: postgresql://trace:${POSTGRES_PASSWORD:-trace_dev_only}@postgres:5432/trace
+      EVIDENCE_BACKEND: ${EVIDENCE_BACKEND:-filesystem}
+      EVIDENCE_DIRECTORY: /var/lib/trace/evidence
+    ports: ["127.0.0.1:${TRACE_PORT:-8000}:8000"]
+    volumes: ["evidence_data:/var/lib/trace/evidence"]
     depends_on:
-      migrate:
-        condition: service_completed_successfully
-      postgres:
-        condition: service_healthy
-      minio:
-        condition: service_started
+      migrate: {condition: service_completed_successfully}
     read_only: true
-    tmpfs:
-      - /tmp
-    security_opt:
-      - no-new-privileges:true
-
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/ready', timeout=8)"]
+      interval: 10s
+      timeout: 10s
+      retries: 12
+      start_period: 20s
+  neo4j:
+    profiles: [graph]
+    image: neo4j:5-community
+    environment:
+      NEO4J_AUTH: neo4j/${NEO4J_PASSWORD:-trace_graph_dev_only}
+    ports: ["127.0.0.1:7687:7687", "127.0.0.1:7474:7474"]
+    volumes: ["neo4j_data:/data"]
+  redis:
+    profiles: [cache]
+    image: redis:7-alpine
+    command: [redis-server, --appendonly, "yes"]
+    volumes: ["redis_data:/data"]
+    healthcheck:
+      test: [CMD, redis-cli, ping]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+  objectstore:
+    profiles: [s3]
+    image: localstack/localstack:4.14.0
+    environment: {SERVICES: s3, PERSISTENCE: "1"}
+    ports: ["127.0.0.1:9000:4566"]
+    volumes: ["s3_data:/var/lib/localstack"]
 volumes:
   postgres_data:
+  evidence_data:
   neo4j_data:
-  opensearch_data:
   redis_data:
-  minio_data:
+  s3_data:

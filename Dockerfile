@@ -7,12 +7,13 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 RUN useradd --create-home --uid 10001 trace && mkdir -p /var/lib/trace/evidence && chown -R trace:trace /var/lib/trace
 WORKDIR /app
 
-COPY requirements.txt /app/
-RUN pip install --upgrade pip && pip install -r requirements.txt
+COPY requirements.lock /app/
+RUN pip install -r requirements.lock
 
 COPY services/api /app/services/api
 COPY scripts /app/scripts
 COPY db /app/db
+COPY fixtures /app/fixtures
 
 ENV PYTHONPATH=/app/services/api
 USER trace
