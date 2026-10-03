@@ -28,7 +28,9 @@ jobs:
         image: postgres:17-alpine
         env: {POSTGRES_USER: trace, POSTGRES_PASSWORD: trace_ci_only, POSTGRES_DB: trace_test}
         ports: ['5432:5432']
-        options: --health-cmd 'pg_isready -U trace -d trace_test' --health-interval 3s --health-retries 30
+        options: >-
+          --health-cmd "pg_isready -U trace -d trace_test"
+          --health-interval 3s --health-retries 30
     env:
       PYTHONPATH: services/api
       TRACE_ENV: dev
