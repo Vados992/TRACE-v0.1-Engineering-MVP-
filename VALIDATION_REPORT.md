@@ -33,11 +33,23 @@ Open Ownership is a partial prefix of its publisher snapshot released on **2025-
 
 Cellar follows the publisher's same-host redirect using HTTPS and a separate 64 MiB response bound. The corrected parser selects only the requested RDF subject and explicit CDM predicates, retaining direction and excluding proposed amendments and annotation vocabulary. Migration 008 preserves and retires legacy overbroad parser assertions; new extraction has a distinct parser identity. The live 62.7 MB response succeeded after this correction.
 
-The production-like native database also received the actual BODS snapshot subset (53 entities/21 relationships), with successful evidence Path Finder checks and no synthetic entities.
+All five real-source checks were also executed through the native production-like API with its scoped analyst key and non-superuser database runtime role. They returned HTTP 200 and successful Path Finder results. No synthetic entities were present there.
+
+The final local analyst API points to a separate fresh live database: **328 real entities, 293 active relationships, seven stored artifacts, eight migrations and zero synthetic entities** after the bounded five-source import. Recomputing audit hashes and ordered links found zero broken links. Test fixtures remain in a different database/vault. The real conflict scan returned zero signals: these bounded sources do not supply the disclosed public-role records needed by the implemented rule; no roles or conflicts were invented.
 
 ## Container and CI evidence
 
-The repository includes GitHub Actions for Linux unit/integration workflows, required development containers, production-like containers/public gateway, actual-server browser checks and Windows installer/UI compatibility. Container execution results will be recorded after the GitHub run; native checks above must not be represented as Docker execution.
+GitHub Actions passed all five jobs on executable-code commit `9aa0d1c16740d076a57140bda6669c510011f37f`:
+
+| Executed job | Result | Run |
+|---|---|---|
+| Linux unit tests, Ruff, compilation and OpenAPI regeneration | PASS | [TRACE-PIA CI](https://github.com/Vados992/TRACE-v0.1-Engineering-MVP-/actions/runs/37102303509) |
+| Fresh PostgreSQL 17, all migrations twice and integration workflows | PASS | [TRACE-PIA CI](https://github.com/Vados992/TRACE-v0.1-Engineering-MVP-/actions/runs/37102303509) |
+| Required development Docker Compose stack, smoke, isolated acceptance fixtures and actual-server browser | PASS | [TRACE-PIA containers](https://github.com/Vados992/TRACE-v0.1-Engineering-MVP-/actions/runs/37102303508) |
+| Production-like Docker Compose, owner/runtime role provisioning, random keys and public nginx boundary | PASS | [TRACE-PIA containers](https://github.com/Vados992/TRACE-v0.1-Engineering-MVP-/actions/runs/37102303508) |
+| Windows installer compatibility and isolated desktop/mobile browser controls | PASS | [TRACE Windows and UI](https://github.com/Vados992/TRACE-v0.1-Engineering-MVP-/actions/runs/37102303511) |
+
+The first integration-service run exposed a GitHub runner argument-parsing error in a single-quoted health command; the command was corrected to use double quotes and the fresh PostgreSQL integration job then passed. The native checks and these actual container executions are separate evidence. External publishers were verified locally rather than represented by CI fixture tests.
 
 ## Remaining installation dependencies
 
