@@ -11,7 +11,8 @@ const path = require('path');
  await page.route('http://trace.test/**',async route=>{
    const u=new URL(route.request().url());let body;
    if(u.pathname.startsWith('/ui/')){const f=u.pathname==='/ui/'?'index.html':u.pathname.split('/').at(-1);return route.fulfill({path:path.resolve('services/api/static',f),contentType:f.endsWith('.css')?'text/css':f.endsWith('.js')?'text/javascript':'text/html'});}
-   if(u.pathname==='/api/v1/system/status')body={status:'ready',components:{postgres:{status:'ok'},evidence:{status:'ok'},neo4j:{status:'ok'},redis:{status:'ok'},opensearch:{status:'ok'}}};
+   if(u.pathname==='/api/internal/me')body={subject:'fixture-analyst',role:'analyst'};
+   else if(u.pathname==='/api/v1/system/status')body={status:'ready',components:{postgres:{status:'ok'},evidence:{status:'ok'},neo4j:{status:'ok'},redis:{status:'ok'},opensearch:{status:'ok'}}};
    else if(u.pathname.endsWith('/reconciliation/summary'))body={source_mappings:2,relationship_observations:1,open_entity_candidates:0,open_relationship_conflicts:0};
    else if(u.pathname.includes('relationship-intelligence'))body={layer:'ownership',status:'SUCCEEDED',entity_ids:[a,b],relationship_ids:['edge1'],notes:[]};
    else if(u.pathname.endsWith('/entities/search'))body=[entity(a),entity(b)];
@@ -22,6 +23,8 @@ const path = require('path');
    return route.fulfill({json:body});
  });
  await page.goto('http://trace.test/ui/');
+ await page.locator('#api-key').fill('isolated-browser-fixture-key');
+ await page.locator('#login-form').getByRole('button',{name:'Войти',exact:true}).click();
  await page.getByText('Готово',{exact:true}).waitFor();
  await page.locator('#gleif-form button').click();
  await page.getByText('ownership · SUCCEEDED',{exact:true}).waitFor();
