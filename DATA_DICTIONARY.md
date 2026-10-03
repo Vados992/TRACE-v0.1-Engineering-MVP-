@@ -35,3 +35,7 @@ Exact columns, constraints and indexes are defined by `db/migrations/*.sql`; exe
 * Monetary fields use PostgreSQL NUMERIC and Python Decimal. Values in different currencies are not summed without a separately sourced valuation policy.
 * Ownership ranges are not exact percentages. Identity matching by a supplied registry scheme/ID differs from uncertain name similarity; uncertain resolution requires human action.
 * `demo=true`, source DEMO and `DEMO:` identifier namespaces are explicit test labels. Startup does not seed demo people. Test fixtures do not demonstrate real connector access.
+
+## Temporal versions
+
+`temporal_versions`: immutable full row snapshots, table/UUID identity, operation and PostgreSQL xid8. `temporal_commits`: immutable actual transaction commit time, retained independently of PostgreSQL tracker pruning. `temporal_pending`: operational receipt finalization queue. `temporal_control`: immutable activation transaction defining the earliest exact knowledge snapshot. `known_at`: requested system cutoff; `known_from`: actual commit of the selected relationship version. `valid_from/valid_to`: independent fact validity. Baseline rows are never backdated.

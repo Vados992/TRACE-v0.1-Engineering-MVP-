@@ -93,3 +93,7 @@ GitHub Actions runs unit/integration tests, development and production-like cont
 | `.github/workflows` | Automated validation |
 
 Further documentation: [ARCHITECTURE.md](ARCHITECTURE.md), [OPERATIONS.md](OPERATIONS.md), [DATA_DICTIONARY.md](DATA_DICTIONARY.md), [TROUBLESHOOTING.md](TROUBLESHOOTING.md). Historical architecture material remains in `docs/`, the original migrations and core modules. The referenced 66-page Spanish specification was not available in the supplied project or referenced conversation attachments; this implementation preserves the stated architectural principles and existing core, without claiming a page-by-page conformance audit.
+
+## Two independent time axes
+
+Migration 009 adds immutable bitemporal versions and actual PostgreSQL commit receipts. Use `known_at` independently of fact validity dates; the analyst console exposes both. Earlier snapshots exclude later ingestion, reviews, corrections and evidence. Exact history starts at migration 009 and earlier requests fail explicitly. PostgreSQL requires `track_commit_timestamp=on` (configured in Compose). See [TEMPORAL.md](TEMPORAL.md) for querying and upgrading.

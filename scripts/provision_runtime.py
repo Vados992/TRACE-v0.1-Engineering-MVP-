@@ -33,6 +33,19 @@ def main():
         conn.execute("GRANT SELECT ON schema_migrations TO trace_runtime")
         conn.execute("REVOKE UPDATE,DELETE,TRUNCATE ON audit_events FROM trace_runtime")
         conn.execute("REVOKE UPDATE,DELETE,TRUNCATE ON case_events FROM trace_runtime")
+        for table in (
+            "temporal_versions",
+            "temporal_commits",
+            "temporal_control",
+            "temporal_pending",
+        ):
+            conn.execute(
+                sql.SQL("REVOKE ALL ON {} FROM trace_runtime").format(sql.Identifier(table))
+            )
+            conn.execute(
+                sql.SQL("GRANT SELECT ON {} TO trace_runtime").format(sql.Identifier(table))
+            )
+        conn.execute("REVOKE ALL ON SEQUENCE temporal_versions_version_id_seq FROM trace_runtime")
         conn.execute("REVOKE CREATE ON SCHEMA public FROM PUBLIC")
     print("trace_runtime provisioned; schema owner retained for migrations only")
 

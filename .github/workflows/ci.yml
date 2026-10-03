@@ -43,6 +43,15 @@ jobs:
       - uses: actions/setup-python@v5
         with: {python-version: '3.12'}
       - run: pip install -r requirements-dev.lock
+      - name: Enable PostgreSQL commit timestamps
+        run: |
+          docker exec ${{ job.services.postgres.id }} psql -U trace -d trace_test -c "ALTER SYSTEM SET track_commit_timestamp=on"
+          docker restart ${{ job.services.postgres.id }}
+          for attempt in $(seq 1 30); do
+            if docker exec ${{ job.services.postgres.id }} pg_isready -U trace -d trace_test; then exit 0; fi
+            sleep 1
+          done
+          exit 1
       - run: python scripts/migrate.py
       - run: python scripts/migrate.py
       - run: pytest -q tests/integration

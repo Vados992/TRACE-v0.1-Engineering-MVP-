@@ -16,8 +16,8 @@ async function display(action) {
 }
 $('pia-import').addEventListener('submit', e => {e.preventDefault();display(()=>fileRequest('pia-file','/api/internal/imports'));});
 $('wealth-form').addEventListener('submit', e => {e.preventDefault();display(()=>fileRequest('wealth-file','/api/internal/wealth/reconcile'));});
-$('scan-conflicts').addEventListener('click',()=>display(()=>api('/api/internal/conflicts/scan',{})));
+$('scan-conflicts').addEventListener('click',()=>display(()=>api(withKnownAt('/api/internal/conflicts/scan'),{})));
 $('case-create').addEventListener('submit',e=>{e.preventDefault();display(()=>api('/api/internal/cases',JSON.parse($('case-json').value)));});
 $('case-action').addEventListener('submit',e=>{e.preventDefault();display(()=>api('/api/internal/cases/'+encodeURIComponent($('case-id').value.trim())+'/actions',JSON.parse($('case-action-json').value)));});
-$('cases-refresh').addEventListener('click',()=>display(async()=>({cases:await api('/api/internal/cases'),signals:await api('/api/internal/conflicts')})));
+$('cases-refresh').addEventListener('click',()=>display(async()=>({cases:await api(withKnownAt('/api/internal/cases')),signals:await api(withKnownAt('/api/internal/conflicts'))})));
 $('live-fetch').addEventListener('submit',e=>{e.preventDefault();display(()=>api('/api/internal/connectors/fetch',{source:$('live-source').value,limit:3,license:$('source-license').value,legal_basis:$('source-purpose').value}));});

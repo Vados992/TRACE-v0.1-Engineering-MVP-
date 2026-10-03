@@ -13,8 +13,8 @@ async def create_investigation(request: InvestigationRequest) -> UUID:
             await cur.execute(
                 """INSERT INTO investigations(
                        query_text, source_entity_id, target_entity_id, from_time, to_time,
-                       max_depth, verified_only, status
-                   ) VALUES (%s,%s,%s,%s,%s,%s,%s,'RUNNING') RETURNING id""",
+                       max_depth, verified_only, known_at, status
+                   ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,'RUNNING') RETURNING id""",
                 (
                     request.query_text,
                     request.source_entity_id,
@@ -23,6 +23,7 @@ async def create_investigation(request: InvestigationRequest) -> UUID:
                     request.to_time,
                     request.max_depth,
                     request.verified_only,
+                    request.known_at,
                 ),
             )
             row = await cur.fetchone()
@@ -54,7 +55,7 @@ async def get_investigation(investigation_id: UUID) -> dict[str, Any] | None:
             await cur.execute(
                 """SELECT id, query_text, source_entity_id, target_entity_id,
                           from_time, to_time, max_depth, verified_only, status,
-                          created_at, completed_at, result, error_summary
+                          created_at, completed_at, result, error_summary, known_at
                    FROM investigations WHERE id=%s""",
                 (investigation_id,),
             )

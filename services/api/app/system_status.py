@@ -17,8 +17,12 @@ async def database_check():
         async with conn.cursor() as cur:
             await cur.execute("SELECT count(*) AS count FROM schema_migrations")
             count = (await cur.fetchone())["count"]
-            if count < 8:
+            if count < 9:
                 raise RuntimeError("missing migrations")
+            await cur.execute("SHOW track_commit_timestamp")
+            if (await cur.fetchone())["track_commit_timestamp"] != "on":
+                raise RuntimeError("commit timestamp tracking disabled")
+            await cur.execute("SELECT trace_finalize_temporal_commits()")
     return {"migrations": count}
 
 

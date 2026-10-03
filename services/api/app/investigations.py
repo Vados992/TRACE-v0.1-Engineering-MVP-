@@ -2,11 +2,14 @@ from .investigation_repository import create_investigation, finish_investigation
 from .models import InvestigationRequest, InvestigationResult
 from .pathfinder import find_paths
 from .repository import get_entity
+from .temporal import resolve_known_at
 
 
 async def run_investigation(request: InvestigationRequest) -> InvestigationResult:
-    source = await get_entity(request.source_entity_id)
-    target = await get_entity(request.target_entity_id)
+    known_at = await resolve_known_at(request.known_at)
+    request = request.model_copy(update={"known_at": known_at})
+    source = await get_entity(request.source_entity_id, known_at)
+    target = await get_entity(request.target_entity_id, known_at)
     if not source or not target:
         missing = []
         if not source:
@@ -22,6 +25,7 @@ async def run_investigation(request: InvestigationRequest) -> InvestigationResul
             request.target_entity_id,
             from_time=request.from_time,
             to_time=request.to_time,
+            known_at=known_at,
             max_depth=request.max_depth,
             limit=request.limit,
             verified_only=request.verified_only,
@@ -29,7 +33,7 @@ async def run_investigation(request: InvestigationRequest) -> InvestigationResul
         unknowns = []
         if not paths:
             unknowns.append(
-                "No qualifying path was found in the current canonical relationship graph. "
+                "No qualifying path was found in the relationship graph at the selected knowledge cutoff. "
                 "This is not evidence that no real-world relationship exists."
             )
         result = InvestigationResult(
@@ -37,6 +41,7 @@ async def run_investigation(request: InvestigationRequest) -> InvestigationResul
             status="SUCCEEDED",
             source_entity=source,
             target_entity=target,
+            known_at=known_at,
             paths=paths,
             unknowns=unknowns,
             warnings=[

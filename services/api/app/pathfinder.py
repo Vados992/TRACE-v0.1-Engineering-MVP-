@@ -4,6 +4,7 @@ from datetime import datetime
 from uuid import UUID
 
 from .settings import settings
+from .temporal import resolve_known_at
 
 
 class GraphBudgetExceeded(ValueError):
@@ -26,10 +27,12 @@ async def find_paths(
     *,
     from_time: datetime | None = None,
     to_time: datetime | None = None,
+    known_at: datetime | None = None,
     max_depth: int = 6,
     limit: int = 10,
     verified_only: bool = True,
 ) -> list[dict]:
+    known_at = await resolve_known_at(known_at)
     if source_id == target_id:
         return [{"nodes": [str(source_id)], "edges": [], "hops": 0}]
 
@@ -53,7 +56,11 @@ async def find_paths(
 
         if current not in frontier_cache:
             frontier_cache[current] = await fetch_relationship_frontier(
-                [current], from_time=from_time, to_time=to_time, verified_only=verified_only
+                [current],
+                from_time=from_time,
+                to_time=to_time,
+                known_at=known_at,
+                verified_only=verified_only,
             )
         rows = frontier_cache[current]
         if len(rows) > 1000:
@@ -93,10 +100,15 @@ async def find_paths(
                                 "verification_status": e["verification_status"],
                                 "claim_type": e["claim_type"],
                                 "observation_count": int(e.get("observation_count", 0) or 0),
+                                "known_from": e.get("known_from").isoformat()
+                                if e.get("known_from")
+                                else None,
+                                "temporal_version_id": e.get("temporal_version_id"),
                             }
                             for e in next_edges
                         ],
                         "hops": len(next_edges),
+                        "known_at": known_at.isoformat(),
                         "common_valid_from": next_from.isoformat() if next_from else None,
                         "common_valid_to": next_to.isoformat() if next_to else None,
                         "temporal_uncertainty": any(

@@ -52,3 +52,7 @@ Every relationship retains subject/object direction, source observations, claims
 This is a runnable reference application, not a certification. Institution-specific connectors/mappings, jurisdictional access control, OIDC federation/MFA, durable background jobs, signed off-site audit checkpoints, independent external key custody, large-scale graph/query planning, disaster-recovery drills and formal privacy/security review are deployment work. Redis and OpenSearch are optional infrastructure, not pretend worker/search implementations. Historical files claiming a broader architecture describe targets unless executable code and current validation prove them.
 
 The 66-page Spanish v0.2 specification was not supplied. The architectural baseline is the existing GitHub core and the user's explicit requirements. A specification-to-code review must be completed when that document is available.
+
+## Bitemporal reconstruction
+
+See [TEMPORAL.md](TEMPORAL.md). Current tables are projections; immutable row versions and durable PostgreSQL commit receipts drive historical reads. Knowledge time is transaction COMMIT, independently of publisher/retrieval/fact dates. Graph, identity, claim/evidence, conflict, wealth and case reads accept a pinned `known_at`; old status and evidence are selected at that cutoff. Migration 009 creates an honest baseline and never invents pre-upgrade states.

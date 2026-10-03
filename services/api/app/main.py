@@ -7,6 +7,7 @@ import httpx
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
+from pydantic import AwareDatetime
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from .boundaries import BoundaryMiddleware
@@ -41,6 +42,7 @@ from .repository import get_entity, search_entities
 from .security import validate_configuration
 from .settings import settings
 from .system_status import CONNECTORS, readiness
+from .temporal import resolve_known_at
 
 
 @asynccontextmanager
@@ -149,13 +151,14 @@ async def entity_search(
     entity_type: str | None = None,
     limit: int = Query(default=25, ge=1, le=100),
     include_demo: bool = False,
+    known_at: AwareDatetime | None = None,
 ):
-    return await search_entities(q, entity_type, limit, include_demo)
+    return await search_entities(q, entity_type, limit, include_demo, known_at)
 
 
 @app.get("/api/v1/entities/{entity_id}", response_model=EntityDetail)
-async def entity_detail(entity_id: UUID):
-    entity = await get_entity(entity_id)
+async def entity_detail(entity_id: UUID, known_at: AwareDatetime | None = None):
+    entity = await get_entity(entity_id, known_at)
     if not entity:
         raise HTTPException(status_code=404, detail="entity not found")
     return entity
@@ -247,22 +250,25 @@ async def reconciliation_status():
 
 @app.post("/api/v1/graph/path")
 async def graph_path(request: GraphPathRequest):
+    known_at = await resolve_known_at(request.known_at)
     return {
+        "known_at": known_at,
         "paths": await find_paths(
             request.source_entity_id,
             request.target_entity_id,
             from_time=request.from_time,
             to_time=request.to_time,
+            known_at=known_at,
             max_depth=request.max_depth,
             limit=request.limit,
             verified_only=request.verified_only,
-        )
+        ),
     }
 
 
 @app.get("/api/v1/relationships/{relationship_id}/why")
-async def why_relationship(relationship_id: UUID):
-    result = await relationship_evidence(relationship_id)
+async def why_relationship(relationship_id: UUID, known_at: AwareDatetime | None = None):
+    result = await relationship_evidence(relationship_id, await resolve_known_at(known_at))
     if not result:
         raise HTTPException(status_code=404, detail="relationship not found")
     return result

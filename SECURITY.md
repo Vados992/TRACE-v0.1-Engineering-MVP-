@@ -28,3 +28,7 @@ The audit/history protections detect ordinary runtime modification but do not pr
 ## Reporting a vulnerability
 
 Do not post keys, personal evidence or exploit data in a public issue. Contact the repository maintainer privately through an approved channel or GitHub private vulnerability reporting if enabled. The repository does not advertise a verified incident-response mailbox.
+
+## Historical reads
+
+Immutable temporal versions and PostgreSQL commit receipts are protected from application writes; capture/finalization use fixed-search-path database trigger/functions. Runtime has SELECT only on temporal internals. Current authorization still controls old snapshots: a historical artifact classification cannot bypass a later restriction. Public APIs do not provide historical withdrawn releases. A privileged DBA can still disable triggers or alter clocks; maintain independent checkpoints and time controls.

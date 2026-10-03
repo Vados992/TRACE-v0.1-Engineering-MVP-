@@ -3,7 +3,7 @@ from decimal import Decimal
 from typing import Any, Literal
 from uuid import UUID
 
-from pydantic import AwareDatetime, BaseModel, Field, model_validator
+from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, model_validator
 
 EntityType = Literal[
     "PERSON",
@@ -120,10 +120,12 @@ class IngestResult(BaseModel):
 
 
 class GraphPathRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     source_entity_id: UUID
     target_entity_id: UUID
     from_time: AwareDatetime | None = None
     to_time: AwareDatetime | None = None
+    known_at: AwareDatetime | None = None
     max_depth: int = Field(default=6, ge=1, le=6)
     limit: int = Field(default=10, ge=1, le=50)
     verified_only: bool = True
@@ -144,6 +146,7 @@ class InvestigationResult(BaseModel):
     status: Literal["SUCCEEDED", "FAILED"]
     source_entity: EntityDetail
     target_entity: EntityDetail
+    known_at: AwareDatetime
     paths: list[dict[str, Any]] = Field(default_factory=list)
     unknowns: list[str] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)

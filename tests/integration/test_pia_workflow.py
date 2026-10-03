@@ -3,6 +3,7 @@
 import json
 import os
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime
 from pathlib import Path
 from uuid import uuid4
 
@@ -18,6 +19,267 @@ pytestmark = [
     ),
 ]
 ROOT = Path(__file__).resolve().parents[2]
+
+
+def database_clock():
+    from app.settings import settings
+
+    with psycopg.connect(settings.database_url) as conn:
+        return conn.execute("SELECT clock_timestamp()").fetchone()[0]
+
+
+def temporal_import(client):
+    payload = fixture("roles")
+    suffix = str(uuid4())
+    payload["dataset_id"] = "temporal-test:" + suffix
+    for entity in payload["payload"]["entities"]:
+        entity["identifier"] += suffix
+        entity["name"] += suffix
+    before = database_clock()
+    response = client.post("/api/internal/imports", headers=auth("analyst"), json=payload)
+    assert response.status_code == 200, response.text
+    return before, response.json()
+
+
+def historical_path(client, imported, known_at=None, verified=False):
+    body = {
+        "source_entity_id": imported["entity_ids"]["official"],
+        "target_entity_id": imported["entity_ids"]["city"],
+        "from_time": "2025-06-01T00:00:00Z",
+        "to_time": "2025-06-01T00:00:00Z",
+        "verified_only": verified,
+    }
+    if known_at:
+        body["known_at"] = known_at.isoformat()
+    response = client.post("/api/v1/graph/path", headers=auth("analyst"), json=body)
+    assert response.status_code == 200, response.text
+    return response.json()
+
+
+def test_late_valid_fact_is_not_earlier_knowledge(client):
+    before, imported = temporal_import(client)
+    assert historical_path(client, imported, before)["paths"] == []
+    current = historical_path(client, imported)
+    assert len(current["paths"]) == 1
+    assert current["paths"][0]["edges"][0]["known_from"]
+    entity = imported["entity_ids"]["official"]
+    assert (
+        client.get(
+            f"/api/v1/entities/{entity}",
+            params={"known_at": before.isoformat()},
+            headers=auth("analyst"),
+        ).status_code
+        == 404
+    )
+    why = client.get(
+        "/api/v1/relationships/" + imported["relationship_ids"][0] + "/why",
+        params={"known_at": before.isoformat()},
+        headers=auth("analyst"),
+    )
+    assert why.status_code == 404
+
+
+def test_backdated_correction_preserves_old_valid_interval_and_identity(client):
+    from app.settings import settings
+
+    _, imported = temporal_import(client)
+    before = database_clock()
+    relation, person = imported["relationship_ids"][0], imported["entity_ids"]["official"]
+    with psycopg.connect(settings.database_url) as conn:
+        conn.execute(
+            "UPDATE entities SET canonical_name='Corrected synthetic identity' WHERE id=%s",
+            (person,),
+        )
+    correction = client.post(
+        f"/api/internal/relationships/{relation}/correct",
+        headers=auth("reviewer"),
+        json={
+            "valid_from": "2024-01-01T00:00:00Z",
+            "valid_to": "2025-01-01T00:00:00Z",
+            "source_record_id": imported["source_record_id"],
+            "note": "Synthetic fixture documents a backdated end of this role",
+        },
+    )
+    assert correction.status_code == 200 and correction.json()["history_preserved"] is True
+    assert historical_path(client, imported)["paths"] == []
+    old = historical_path(client, imported, before)
+    assert len(old["paths"]) == 1 and old["paths"][0]["edges"][0]["valid_to"] is None
+    entity = client.get(
+        f"/api/v1/entities/{person}",
+        params={"known_at": before.isoformat()},
+        headers=auth("analyst"),
+    ).json()
+    assert entity["canonical_name"].startswith("Demo Official")
+    investigation = client.post(
+        "/api/v1/investigations",
+        headers=auth("analyst"),
+        json={
+            "source_entity_id": person,
+            "target_entity_id": imported["entity_ids"]["city"],
+            "known_at": before.isoformat(),
+            "verified_only": False,
+        },
+    )
+    assert investigation.status_code == 200, investigation.text
+    assert investigation.json()["source_entity"]["canonical_name"] == entity["canonical_name"]
+    saved = client.get(
+        "/api/v1/investigations/" + investigation.json()["investigation_id"],
+        headers=auth("analyst"),
+    ).json()
+    assert datetime.fromisoformat(saved["known_at"]) == datetime.fromisoformat(
+        investigation.json()["known_at"]
+    )
+
+
+def test_review_retraction_and_supersession_do_not_rewrite_past(client):
+    from app.settings import settings
+
+    _, imported = temporal_import(client)
+    initial = database_clock()
+    claim, relation = imported["claim_ids"][0], imported["relationship_ids"][0]
+    assert historical_path(client, imported, initial, verified=True)["paths"] == []
+    # Synthetic verification is intentionally unavailable via API. Only the disposable test owner
+    # sets this status to exercise the historical status filter; no real-world truth is claimed.
+    with psycopg.connect(settings.database_url) as conn:
+        conn.execute(
+            "UPDATE claims SET verification_status='VERIFIED_PRIMARY' WHERE id=%s", (claim,)
+        )
+    verified = database_clock()
+    assert historical_path(client, imported, verified, verified=True)["paths"]
+    assert historical_path(client, imported, initial, verified=True)["paths"] == []
+    response = client.post(
+        f"/api/internal/claims/{claim}/review",
+        headers=auth("reviewer"),
+        json={
+            "status": "RETRACTED",
+            "note": "Later synthetic evidence invalidates this test assertion",
+        },
+    )
+    assert response.status_code == 200, response.text
+    with psycopg.connect(settings.database_url) as conn:
+        conn.execute(
+            "UPDATE relationships SET superseded_at=clock_timestamp(),relationship_status='SUPERSEDED' WHERE id=%s",
+            (relation,),
+        )
+    assert historical_path(client, imported)["paths"] == []
+    assert historical_path(client, imported, verified, verified=True)["paths"]
+    detail = client.get(
+        f"/api/internal/claims/{claim}",
+        params={"known_at": verified.isoformat()},
+        headers=auth("analyst"),
+    ).json()
+    assert detail["claim"]["verification_status"] == "VERIFIED_PRIMARY"
+    with psycopg.connect(settings.database_url) as conn:
+        with pytest.raises(psycopg.Error):
+            conn.execute("DELETE FROM temporal_versions WHERE record_id=%s", (relation,))
+
+
+def test_later_observation_and_evidence_do_not_leak_into_old_why(client):
+    from app.settings import settings
+
+    _, imported = temporal_import(client)
+    before = database_clock()
+    relation = imported["relationship_ids"][0]
+    claim = imported["claim_ids"][0]
+    with psycopg.connect(settings.database_url) as conn:
+        source = conn.execute(
+            "SELECT source_id FROM source_records WHERE id=%s", (imported["source_record_id"],)
+        ).fetchone()[0]
+        record = conn.execute(
+            "INSERT INTO source_records(source_id,external_id,payload_uri,payload_hash,parser_version) VALUES (%s,%s,'fixture://later','later-test-hash','test') RETURNING id",
+            (source, str(uuid4())),
+        ).fetchone()[0]
+        conn.execute(
+            "INSERT INTO claim_evidence(claim_id,source_record_id,extraction_method,evidence_strength) VALUES (%s,%s,'later-fixture','E0')",
+            (claim, record),
+        )
+        conn.execute(
+            "INSERT INTO relationship_observations(source_id,source_record_id,canonical_relationship_id,subject_entity_id,relationship_type,object_entity_id,valid_from,semantic_key) SELECT %s,%s,id,subject_entity_id,relationship_type,object_entity_id,valid_from,%s FROM relationships WHERE id=%s",
+            (source, record, str(uuid4()), relation),
+        )
+    old = client.get(
+        f"/api/v1/relationships/{relation}/why",
+        params={"known_at": before.isoformat()},
+        headers=auth("analyst"),
+    ).json()
+    latest = client.get(f"/api/v1/relationships/{relation}/why", headers=auth("analyst")).json()
+    assert len(old["source_observations"]) == 1 and len(latest["source_observations"]) == 2
+    assert (
+        len(old["canonical_claim_evidence"]) == 1 and len(latest["canonical_claim_evidence"]) == 2
+    )
+    assert historical_path(client, imported, before)["paths"][0]["supporting_observations"] == 1
+
+
+def test_transaction_start_is_not_knowledge_time(client):
+    from app.settings import settings
+
+    _, imported = temporal_import(client)
+    person = str(uuid4())
+    with psycopg.connect(settings.database_url) as conn:
+        conn.execute(
+            "INSERT INTO entities(id,entity_type,canonical_name,normalized_name,is_demo) VALUES (%s,'PERSON','Atomic synthetic fixture','atomic synthetic fixture',true)",
+            (person,),
+        )
+        claim = conn.execute(
+            "INSERT INTO claims(subject_entity_id,predicate,object_entity_id,valid_from,claim_type,verification_status) VALUES (%s,'OWNS',%s,'2024-01-01','FACT','UNVERIFIED') RETURNING id",
+            (person, imported["entity_ids"]["city"]),
+        ).fetchone()[0]
+        observed = conn.execute(
+            "INSERT INTO relationships(subject_entity_id,relationship_type,object_entity_id,valid_from,claim_id) VALUES (%s,'OWNS',%s,'2024-01-01',%s) RETURNING observed_at",
+            (person, imported["entity_ids"]["city"], claim),
+        ).fetchone()[0]
+        before_commit = database_clock()
+        assert observed < before_commit
+    imported["entity_ids"]["official"] = person
+    assert historical_path(client, imported, before_commit)["paths"] == []
+    assert len(historical_path(client, imported)["paths"]) == 1
+
+
+def test_unavailable_future_and_naive_knowledge_cutoffs_are_rejected(client):
+    from datetime import timedelta
+
+    _, imported = temporal_import(client)
+    body = {
+        "source_entity_id": imported["entity_ids"]["official"],
+        "target_entity_id": imported["entity_ids"]["city"],
+    }
+    body["known_at"] = "2010-01-01T00:00:00Z"
+    response = client.post("/api/v1/graph/path", headers=auth("analyst"), json=body)
+    assert (
+        response.status_code == 409 and response.json()["detail"]["code"] == "HISTORY_UNAVAILABLE"
+    )
+    body["known_at"] = (database_clock() + timedelta(days=1)).isoformat()
+    assert client.post("/api/v1/graph/path", headers=auth("analyst"), json=body).status_code == 422
+    body["known_at"] = "2026-01-01T00:00:00"
+    assert client.post("/api/v1/graph/path", headers=auth("analyst"), json=body).status_code == 422
+
+
+def test_conflict_scan_excludes_information_disclosed_later(client):
+    for name in ["ocds", "bods", "roles", "ppds"]:
+        response = client.post("/api/internal/imports", headers=auth("analyst"), json=fixture(name))
+        assert response.status_code == 200, response.text
+    before = database_clock()
+    old = client.post(
+        "/api/internal/conflicts/scan",
+        params={"known_at": before.isoformat(), "include_demo": "true"},
+        headers=auth("analyst"),
+    )
+    assert old.status_code == 200, old.text
+    disclosed = fixture("roles")
+    disclosed["dataset_id"] = "later-disclosure:" + str(uuid4())
+    disclosed["payload"]["relationships"][0]["valid_from"] = (
+        "2025-01-01T00:00:00." + f"{uuid4().int % 1000000:06d}" + "Z"
+    )
+    response = client.post("/api/internal/imports", headers=auth("analyst"), json=disclosed)
+    assert response.status_code == 200, response.text
+    current = client.post("/api/internal/conflicts/scan?include_demo=true", headers=auth("analyst"))
+    assert current.status_code == 200 and current.json()["count"] > old.json()["count"]
+    repeated = client.post(
+        "/api/internal/conflicts/scan",
+        params={"known_at": before.isoformat(), "include_demo": "true"},
+        headers=auth("analyst"),
+    )
+    assert repeated.json()["count"] == old.json()["count"]
 
 
 @pytest.fixture(scope="module")

@@ -19,3 +19,7 @@ Development Compose publishes PostgreSQL to loopback 5432. The production-like s
 For a managed database: create the two roles according to provider policy, apply required extensions as an authorized owner, set an SSL-verified PostgreSQL DSN (for example `?sslmode=verify-full&sslrootcert=/path/provider-ca.pem`), provision the runtime role and test backups/restore. Do not put the owner password in API environment variables.
 
 Filesystem objects use a SHA-256-derived key and atomic first-write behavior, with integrity checks on reads. Object storage is private; enable encryption, versioning and retention/Object Lock if supported and legally appropriate. Filesystem hash addressing is not OS-level WORM storage. Both PostgreSQL and vault must be recovered to a mutually consistent point. See [OPERATIONS.md](OPERATIONS.md).
+
+## Required bitemporal configuration
+
+PostgreSQL must run with `track_commit_timestamp=on` before migration 009. Updated dev/production/desktop Compose files configure it. For native/managed PostgreSQL enable the parameter and restart first, then migrate and re-provision runtime grants. Migration 009 captures 24 versioned tables, an immutable commit receipt cache and a pending receipt queue. Complete DB backups must include these. Read [TEMPORAL.md](TEMPORAL.md) before upgrading or querying old dates.

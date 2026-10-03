@@ -17,4 +17,8 @@ pool = AsyncConnectionPool(
 @asynccontextmanager
 async def connection():
     async with pool.connection() as conn:
+        await conn.execute("SELECT trace_finalize_temporal_commits()")
+        await conn.commit()
         yield conn
+        await conn.commit()
+        await conn.execute("SELECT trace_finalize_temporal_commits()")

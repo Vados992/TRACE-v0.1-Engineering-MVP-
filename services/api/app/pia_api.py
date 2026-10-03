@@ -8,7 +8,7 @@ import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import Response
 from psycopg.types.json import Jsonb
-from pydantic import Field
+from pydantic import AwareDatetime, Field, model_validator
 
 from . import audit
 from .adapters import StrictModel
@@ -17,8 +17,10 @@ from .connectors.datasets import JsonDatasetConnector, OcdsConnector, OpenOwners
 from .db import connection
 from .object_store import EvidenceStore
 from .pia_ingestion import import_dataset, persist_source
+from .relationship_semantics import semantic_key
 from .security import bearer_schema, principal, require
 from .settings import settings
+from .temporal import resolve_known_at
 from .wealth import ENGINE_VERSION, WealthInput, reconcile
 
 internal = APIRouter(
@@ -114,6 +116,97 @@ class ClaimReview(StrictModel):
     note: str = Field(min_length=10, max_length=5000)
 
 
+class RelationshipCorrection(StrictModel):
+    valid_from: AwareDatetime | None
+    valid_to: AwareDatetime | None
+    source_record_id: UUID
+    note: str = Field(min_length=10, max_length=5000)
+
+    @model_validator(mode="after")
+    def interval(self):
+        if self.valid_from and self.valid_to and self.valid_to < self.valid_from:
+            raise ValueError("Invalid corrected validity interval")
+        return self
+
+
+@internal.post("/relationships/{relationship_id}/correct")
+async def correct_relationship(
+    relationship_id: UUID, body: RelationshipCorrection, request: Request
+):
+    actor = require(request, "reviewer")
+    async with connection() as conn:
+        async with conn.transaction():
+            rel = await one(
+                conn, "SELECT * FROM relationships WHERE id=%s FOR UPDATE", (relationship_id,)
+            )
+            if not rel or rel["superseded_at"]:
+                raise HTTPException(409, "An active relationship is required")
+            claim = await one(
+                conn, "SELECT * FROM claims WHERE id=%s FOR UPDATE", (rel["claim_id"],)
+            )
+            if not claim or claim["created_by"] == actor.subject:
+                raise HTTPException(409, "Independent reviewer and canonical claim required")
+            source = await one(
+                conn,
+                "SELECT sr.source_id,s.is_demo FROM source_records sr JOIN sources s ON s.id=sr.source_id WHERE sr.id=%s",
+                (body.source_record_id,),
+            )
+            subject = await one(
+                conn, "SELECT is_demo FROM entities WHERE id=%s", (rel["subject_entity_id"],)
+            )
+            if not source or source["is_demo"] != subject["is_demo"]:
+                raise HTTPException(
+                    422, "Correction evidence must match the live/test classification"
+                )
+            await conn.execute(
+                "UPDATE relationships SET valid_from=%s,valid_to=%s WHERE id=%s",
+                (body.valid_from, body.valid_to, relationship_id),
+            )
+            await conn.execute(
+                "UPDATE claims SET valid_from=%s,valid_to=%s,verification_status='UNVERIFIED',created_by=%s,reviewed_by=%s,reviewed_at=now() WHERE id=%s",
+                (body.valid_from, body.valid_to, actor.subject, actor.subject, claim["id"]),
+            )
+            await conn.execute(
+                "UPDATE relationship_observations SET observation_status='SUPERSEDED' WHERE canonical_relationship_id=%s AND observation_status='ACTIVE'",
+                (relationship_id,),
+            )
+            await conn.execute(
+                "INSERT INTO claim_evidence(claim_id,source_record_id,extraction_method,evidence_strength) VALUES (%s,%s,'REVIEWED_VALIDITY_CORRECTION','E0') ON CONFLICT DO NOTHING",
+                (claim["id"], body.source_record_id),
+            )
+            key = semantic_key(
+                rel["subject_entity_id"],
+                rel["relationship_type"],
+                rel["object_entity_id"],
+                body.valid_from,
+                body.valid_to,
+            )
+            await conn.execute(
+                """INSERT INTO relationship_observations(source_id,source_record_id,canonical_relationship_id,subject_entity_id,relationship_type,object_entity_id,valid_from,valid_to,semantic_key,details)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) ON CONFLICT(source_record_id,semantic_key) DO UPDATE SET observation_status='ACTIVE'""",
+                (
+                    source["source_id"],
+                    body.source_record_id,
+                    relationship_id,
+                    rel["subject_entity_id"],
+                    rel["relationship_type"],
+                    rel["object_entity_id"],
+                    body.valid_from,
+                    body.valid_to,
+                    key,
+                    Jsonb({"correction_note": body.note, "reviewer": actor.subject}),
+                ),
+            )
+            await audit.record(
+                conn,
+                actor.subject,
+                "RELATIONSHIP_CORRECTED",
+                str(relationship_id),
+                {"source_record_id": str(body.source_record_id), "note": body.note},
+            )
+    return {"relationship_id": relationship_id, "status": "UNVERIFIED", "history_preserved": True}
+
+
 class CaseInput(StrictModel):
     entity_id: UUID
     title: str = Field(min_length=1, max_length=500)
@@ -143,6 +236,22 @@ async def me(request: Request):
     return {"subject": identity.subject, "role": identity.role}
 
 
+@internal.get("/temporal/status")
+async def temporal_status():
+    cutoff = await resolve_known_at()
+    async with connection() as conn:
+        baseline = await one(
+            conn,
+            "SELECT c.committed_at FROM temporal_control t JOIN temporal_commits c ON c.transaction_id=t.activation_transaction",
+        )
+        return {
+            "known_at": cutoff,
+            "history_available_from": baseline["committed_at"],
+            "system_time": "postgresql_transaction_commit",
+            "pre_migration_reconstruction": False,
+        }
+
+
 @internal.post("/imports")
 async def ingest(body: ImportRequest, request: Request):
     actor = require(request, "analyst", "admin")
@@ -165,21 +274,24 @@ async def imports(limit: int = Query(50, ge=1, le=100), include_demo: bool = Fal
 
 
 @internal.get("/claims/{claim_id}")
-async def claim_detail(claim_id: UUID):
+async def claim_detail(claim_id: UUID, known_at: AwareDatetime | None = None):
+    known_at = await resolve_known_at(known_at)
     async with connection() as conn:
-        claim = await one(conn, "SELECT * FROM claims WHERE id=%s", (claim_id,))
+        claim = await one(
+            conn, "SELECT * FROM trace_claims_at(%s) WHERE id=%s", (known_at, claim_id)
+        )
         if not claim:
             raise HTTPException(404, "Claim not found")
         evidence = await (
             await conn.execute(
                 """SELECT ce.id,ce.locator,ce.extraction_method,ce.extractor_version,ce.evidence_strength,
                ce.source_record_id,sr.payload_hash,sr.parser_version,sr.retrieved_at,sr.metadata,s.code,s.is_demo
-               FROM claim_evidence ce LEFT JOIN source_records sr ON sr.id=ce.source_record_id
-               LEFT JOIN sources s ON s.id=sr.source_id WHERE ce.claim_id=%s""",
-                (claim_id,),
+               FROM trace_claim_evidence_at(%s) ce LEFT JOIN trace_source_records_at(%s) sr ON sr.id=ce.source_record_id
+               LEFT JOIN trace_sources_at(%s) s ON s.id=sr.source_id WHERE ce.claim_id=%s""",
+                (known_at, known_at, known_at, claim_id),
             )
         ).fetchall()
-        return {"claim": claim, "evidence": evidence}
+        return {"claim": claim, "evidence": evidence, "known_at": known_at}
 
 
 @internal.post("/claims/{claim_id}/review")
@@ -218,13 +330,23 @@ async def review_claim(claim_id: UUID, body: ClaimReview, request: Request):
 
 
 @internal.get("/evidence/{artifact_id}")
-async def evidence(artifact_id: UUID, request: Request):
+async def evidence(artifact_id: UUID, request: Request, known_at: AwareDatetime | None = None):
     actor = require(request, "analyst", "reviewer", "admin")
+    known_at = await resolve_known_at(known_at)
     async with connection() as conn:
-        artifact = await one(conn, "SELECT * FROM raw_artifacts WHERE id=%s", (artifact_id,))
+        artifact = await one(
+            conn, "SELECT * FROM trace_raw_artifacts_at(%s) WHERE id=%s", (known_at, artifact_id)
+        )
         if not artifact:
             raise HTTPException(404, "Evidence not found")
-        if artifact["access_class"] == "RESTRICTED" and actor.role != "admin":
+        current = await one(
+            conn, "SELECT access_class FROM raw_artifacts WHERE id=%s", (artifact_id,)
+        )
+        if (
+            not current
+            or current["access_class"] == "RESTRICTED"
+            or artifact["access_class"] == "RESTRICTED"
+        ) and actor.role != "admin":
             raise HTTPException(403, "Restricted evidence requires administrator")
         try:
             raw = await asyncio.to_thread(
@@ -307,19 +429,23 @@ async def wealth(body: WealthInput, request: Request):
 
 
 @internal.get("/wealth/{entity_id}")
-async def wealth_history(entity_id: UUID, limit: int = Query(50, ge=1, le=100)):
+async def wealth_history(
+    entity_id: UUID, limit: int = Query(50, ge=1, le=100), known_at: AwareDatetime | None = None
+):
+    known_at = await resolve_known_at(known_at)
     async with connection() as conn:
         return await (
             await conn.execute(
-                "SELECT * FROM wealth_submissions WHERE entity_id=%s ORDER BY created_at DESC LIMIT %s",
-                (entity_id, limit),
+                "SELECT * FROM trace_wealth_submissions_at(%s) WHERE entity_id=%s ORDER BY created_at DESC LIMIT %s",
+                (known_at, entity_id, limit),
             )
         ).fetchall()
 
 
 @internal.post("/conflicts/scan")
-async def scan(request: Request, include_demo: bool = False):
+async def scan(request: Request, include_demo: bool = False, known_at: AwareDatetime | None = None):
     actor = require(request, "analyst", "admin")
+    known_at = await resolve_known_at(known_at)
     async with connection() as conn:
         async with conn.transaction():
             # A disclosed role + ownership of a supplier at award time is context requiring review.
@@ -329,12 +455,12 @@ async def scan(request: Request, include_demo: bool = False):
                    own.claim_id AS ownership_claim,pa.id AS award_id,pa.decision_date,
                    role.valid_from AS role_start,own.valid_from AS own_start,
                    winner.claim_id AS award_claim
-                   FROM relationships role JOIN relationships own ON own.subject_entity_id=role.subject_entity_id
-                   JOIN procurement_awards pa ON pa.buyer_entity_id=role.object_entity_id AND pa.winner_entity_id=own.object_entity_id
-                   JOIN relationships winner ON winner.id=pa.buyer_winner_relationship_id
-                   JOIN claims cr ON cr.id=role.claim_id JOIN claims co ON co.id=own.claim_id
-                   JOIN claims ca ON ca.id=winner.claim_id
-                   JOIN entities subject ON subject.id=role.subject_entity_id
+                   FROM trace_relationships_at(%s) role JOIN trace_relationships_at(%s) own ON own.subject_entity_id=role.subject_entity_id
+                   JOIN trace_procurement_awards_at(%s) pa ON pa.buyer_entity_id=role.object_entity_id AND pa.winner_entity_id=own.object_entity_id
+                   JOIN trace_relationships_at(%s) winner ON winner.id=pa.buyer_winner_relationship_id
+                   JOIN trace_claims_at(%s) cr ON cr.id=role.claim_id JOIN trace_claims_at(%s) co ON co.id=own.claim_id
+                   JOIN trace_claims_at(%s) ca ON ca.id=winner.claim_id
+                   JOIN trace_entities_at(%s) subject ON subject.id=role.subject_entity_id
                    WHERE role.relationship_type='HOLDS_ROLE_IN'
                      AND own.relationship_type IN ('OWNS','BENEFICIAL_OWNER_OF','DECLARED_INTEREST_IN')
                      AND role.superseded_at IS NULL AND own.superseded_at IS NULL AND winner.superseded_at IS NULL
@@ -346,7 +472,7 @@ async def scan(request: Request, include_demo: bool = False):
                      AND (pa.decision_date IS NULL OR own.valid_from IS NULL OR own.valid_from::date<=pa.decision_date)
                      AND (pa.decision_date IS NULL OR own.valid_to IS NULL OR own.valid_to::date>=pa.decision_date)
                    ORDER BY pa.id,role.id,own.id LIMIT 1001""",
-                    (include_demo,),
+                    (*([known_at] * 8), include_demo),
                 )
             ).fetchall()
             if len(rows) > 1000:
@@ -356,6 +482,7 @@ async def scan(request: Request, include_demo: bool = False):
             ids = []
             for row in rows:
                 evidence = {
+                    "known_at": known_at.isoformat(),
                     "claim_ids": [
                         str(row[k]) for k in ["role_claim", "ownership_claim", "award_claim"]
                     ],
@@ -384,17 +511,27 @@ async def scan(request: Request, include_demo: bool = False):
                 "direct-role-supplier/1",
                 {"signals": len(ids)},
             )
-            return {"signal_ids": ids, "count": len(ids), "is_legal_conclusion": False}
+            return {
+                "signal_ids": ids,
+                "count": len(ids),
+                "is_legal_conclusion": False,
+                "known_at": known_at,
+            }
 
 
 @internal.get("/conflicts")
-async def signals(limit: int = Query(50, ge=1, le=100), include_demo: bool = False):
+async def signals(
+    limit: int = Query(50, ge=1, le=100),
+    include_demo: bool = False,
+    known_at: AwareDatetime | None = None,
+):
+    known_at = await resolve_known_at(known_at)
     async with connection() as conn:
         return await (
             await conn.execute(
-                """SELECT s.* FROM conflict_signals s JOIN entities e ON e.id=s.entity_id
+                """SELECT s.* FROM trace_conflict_signals_at(%s) s JOIN trace_entities_at(%s) e ON e.id=s.entity_id
                    WHERE NOT e.is_demo OR %s ORDER BY s.created_at DESC LIMIT %s""",
-                (include_demo, limit),
+                (known_at, known_at, include_demo, limit),
             )
         ).fetchall()
 
@@ -452,32 +589,42 @@ async def create_case(body: CaseInput, request: Request):
 
 
 @internal.get("/cases")
-async def cases(limit: int = Query(50, ge=1, le=100), include_demo: bool = False):
+async def cases(
+    limit: int = Query(50, ge=1, le=100),
+    include_demo: bool = False,
+    known_at: AwareDatetime | None = None,
+):
+    known_at = await resolve_known_at(known_at)
     async with connection() as conn:
         return await (
             await conn.execute(
-                """SELECT c.* FROM cases c JOIN entities e ON e.id=c.entity_id
+                """SELECT c.* FROM trace_cases_at(%s) c JOIN trace_entities_at(%s) e ON e.id=c.entity_id
                                   WHERE NOT e.is_demo OR %s ORDER BY c.created_at DESC LIMIT %s""",
-                (include_demo, limit),
+                (known_at, known_at, include_demo, limit),
             )
         ).fetchall()
 
 
 @internal.get("/cases/{case_id}")
-async def case_detail(case_id: UUID):
+async def case_detail(case_id: UUID, known_at: AwareDatetime | None = None):
+    known_at = await resolve_known_at(known_at)
     async with connection() as conn:
-        case = await one(conn, "SELECT * FROM cases WHERE id=%s", (case_id,))
+        case = await one(conn, "SELECT * FROM trace_cases_at(%s) WHERE id=%s", (known_at, case_id))
         if not case:
             raise HTTPException(404, "Case not found")
         events = await (
             await conn.execute(
-                "SELECT * FROM case_events WHERE case_id=%s ORDER BY created_at", (case_id,)
+                "SELECT * FROM trace_case_events_at(%s) WHERE case_id=%s ORDER BY created_at",
+                (known_at, case_id),
             )
         ).fetchall()
         claims = await (
-            await conn.execute("SELECT claim_id FROM case_evidence WHERE case_id=%s", (case_id,))
+            await conn.execute(
+                "SELECT claim_id FROM trace_case_evidence_at(%s) WHERE case_id=%s",
+                (known_at, case_id),
+            )
         ).fetchall()
-        return {"case": case, "events": events, "claims": claims}
+        return {"case": case, "events": events, "claims": claims, "known_at": known_at}
 
 
 @internal.post("/cases/{case_id}/actions")

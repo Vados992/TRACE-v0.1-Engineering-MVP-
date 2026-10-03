@@ -38,3 +38,9 @@ The system does not obtain bank/tax/private asset data itself. Public ownership/
 401 missing/invalid key; 403 role/origin/host denial; 404 missing record; 409 independence, publication-state or evidence-integrity conflict; 413 body too large; 422 invalid import/time range/query budget; 502 external source unavailable; 503 database/audit/storage or configured-source prerequisite failure. Exact request/response schemas and endpoint lists are generated from executable models.
 
 New atomic domain mutations write audit events in their transaction. Legacy source writes preserve a prior committed intent and completion record, with completion failure signaled by response header. Claims/public release text are not automatically derived into accusations. Public endpoints have no access to internal case/evidence tables through the application projection.
+
+## Knowledge snapshots
+
+`known_at` is independent of `from_time` / `to_time` and accepts a timezone-aware timestamp. Omitted knowledge time pins current database time once for the operation. Graph results and saved investigations retain the cutoff; historical entity names, claim status and provenance use the same cutoff. `GET /api/internal/temporal/status` returns the first supported history date. Before-baseline requests return 409 HISTORY_UNAVAILABLE; future/naive dates return 422. See [TEMPORAL.md](TEMPORAL.md).
+
+`POST /api/internal/relationships/{id}/correct` allows an independent reviewer to correct validity bounds with an existing source-record ID and an explanation. Previous versions/observations remain in history, the new projection becomes UNVERIFIED and requires independent verification. Incoming contradictory imports remain separate source assertions until review; absence in an export does not automatically prove retraction.

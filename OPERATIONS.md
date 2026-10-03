@@ -37,3 +37,7 @@ Publication withdrawal/appeal removes current public projection and keeps accoun
 ## Capacity / upgrades
 
 The current HTTP imports are synchronous and bounded; there is no persistent job queue despite optional Redis. Partition large datasets into stable batches. Keep provenance and parser versions during reprocessing. Watch the frontier/expansion limits; split graph investigations rather than raising limits blindly. Use ordinary managed PostgreSQL tuning/index review before adding a second authoritative graph service. Apply only new numbered migrations; migration rollback requires a tested recovery plan.
+
+## Commit receipts and historical availability
+
+Before each database backup or PostgreSQL upgrade run `python scripts/finalize_temporal.py` with the target DSN, or `docker compose exec api python /app/scripts/finalize_temporal.py`. The API also finalizes automatically before reads and after writes. If external SQL writers operate while the API is idle, schedule receipt finalization at least every minute. Preserve temporal versions, receipts and the history baseline together in backup/restore. Missing tracker timestamps fail closed; do not fabricate replacement dates. See [TEMPORAL.md](TEMPORAL.md).

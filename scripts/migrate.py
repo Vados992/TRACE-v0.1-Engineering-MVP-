@@ -58,6 +58,7 @@ def main() -> None:
                     "INSERT INTO schema_migrations(version, checksum) VALUES (%s, %s)",
                     (version, digest),
                 )
+        conn.execute("SELECT trace_finalize_temporal_commits()")
         conn.execute("SELECT pg_advisory_unlock(7450208)")
 
 

@@ -49,6 +49,62 @@
         ]
       }
     },
+    "/api/internal/relationships/{relationship_id}/correct": {
+      "post": {
+        "tags": [
+          "Internal PIA"
+        ],
+        "summary": "Correct Relationship",
+        "operationId": "correct_relationship_api_internal_relationships__relationship_id__correct_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "relationship_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Relationship Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RelationshipCorrection"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/internal/me": {
       "get": {
         "tags": [
@@ -56,6 +112,30 @@
         ],
         "summary": "Me",
         "operationId": "me_api_internal_me_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/internal/temporal/status": {
+      "get": {
+        "tags": [
+          "Internal PIA"
+        ],
+        "summary": "Temporal Status",
+        "operationId": "temporal_status_api_internal_temporal_status_get",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -195,6 +275,23 @@
               "format": "uuid",
               "title": "Claim Id"
             }
+          },
+          {
+            "name": "known_at",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Known At"
+            }
           }
         ],
         "responses": {
@@ -296,6 +393,23 @@
               "type": "string",
               "format": "uuid",
               "title": "Artifact Id"
+            }
+          },
+          {
+            "name": "known_at",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Known At"
             }
           }
         ],
@@ -399,6 +513,23 @@
               "default": 50,
               "title": "Limit"
             }
+          },
+          {
+            "name": "known_at",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Known At"
+            }
           }
         ],
         "responses": {
@@ -444,6 +575,23 @@
               "type": "boolean",
               "default": false,
               "title": "Include Demo"
+            }
+          },
+          {
+            "name": "known_at",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Known At"
             }
           }
         ],
@@ -502,6 +650,23 @@
               "type": "boolean",
               "default": false,
               "title": "Include Demo"
+            }
+          },
+          {
+            "name": "known_at",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Known At"
             }
           }
         ],
@@ -659,6 +824,23 @@
               "default": false,
               "title": "Include Demo"
             }
+          },
+          {
+            "name": "known_at",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Known At"
+            }
           }
         ],
         "responses": {
@@ -704,6 +886,23 @@
               "type": "string",
               "format": "uuid",
               "title": "Case Id"
+            }
+          },
+          {
+            "name": "known_at",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Known At"
             }
           }
         ],
@@ -1011,6 +1210,23 @@
               "default": false,
               "title": "Include Demo"
             }
+          },
+          {
+            "name": "known_at",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Known At"
+            }
           }
         ],
         "responses": {
@@ -1059,6 +1275,23 @@
               "type": "string",
               "format": "uuid",
               "title": "Entity Id"
+            }
+          },
+          {
+            "name": "known_at",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Known At"
             }
           }
         ],
@@ -1717,6 +1950,23 @@
               "format": "uuid",
               "title": "Relationship Id"
             }
+          },
+          {
+            "name": "known_at",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Known At"
+            }
           }
         ],
         "responses": {
@@ -2080,6 +2330,18 @@
             ],
             "title": "To Time"
           },
+          "known_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Known At"
+          },
           "max_depth": {
             "type": "integer",
             "maximum": 6.0,
@@ -2100,6 +2362,7 @@
             "default": true
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "source_entity_id",
@@ -2332,6 +2595,18 @@
             ],
             "title": "To Time"
           },
+          "known_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Known At"
+          },
           "max_depth": {
             "type": "integer",
             "maximum": 6.0,
@@ -2363,6 +2638,7 @@
             "title": "Query Text"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "source_entity_id",
@@ -2390,6 +2666,11 @@
           },
           "target_entity": {
             "$ref": "#/components/schemas/EntityDetail"
+          },
+          "known_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Known At"
           },
           "paths": {
             "items": {
@@ -2419,7 +2700,8 @@
           "investigation_id",
           "status",
           "source_entity",
-          "target_entity"
+          "target_entity",
+          "known_at"
         ],
         "title": "InvestigationResult"
       },
@@ -2699,6 +2981,54 @@
           "status"
         ],
         "title": "RelationshipBuildResult"
+      },
+      "RelationshipCorrection": {
+        "properties": {
+          "valid_from": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valid From"
+          },
+          "valid_to": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valid To"
+          },
+          "source_record_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Source Record Id"
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 5000,
+            "minLength": 10,
+            "title": "Note"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "valid_from",
+          "valid_to",
+          "source_record_id",
+          "note"
+        ],
+        "title": "RelationshipCorrection"
       },
       "ResolutionRecord": {
         "properties": {

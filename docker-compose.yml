@@ -2,6 +2,7 @@ name: trace-pia-dev
 services:
   postgres:
     image: postgres:17-alpine
+    command: [postgres, -c, track_commit_timestamp=on]
     environment:
       POSTGRES_DB: trace
       POSTGRES_USER: trace
