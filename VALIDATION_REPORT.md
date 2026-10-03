@@ -1,44 +1,49 @@
-# TRACE Desktop — validation record
+# TRACE-PIA execution evidence
 
-Date: 28 September 2026. Tested application commit: `2eb337f5270997c5f7e7b1c125ffa5c4f35db669`.
+Checked on 2026-10-03. This report describes executed checks, not production certification or an official government integration.
 
-The final packaging commit adds this report only. It does not change the tested application.
+## Native local stack
 
-## Completed checks
+Windows workstation: Python 3.12, PostgreSQL 17.11, persistent filesystem Evidence Vault, FastAPI and nginx 1.28.3. All eight migrations applied successfully to separate development, disposable integration-test and production-like databases. Re-running migrations verifies checksums without reapplying them. Docker/WSL was not available locally; container execution is a separate GitHub Actions check.
 
-| Check | Result | Evidence |
-|---|---|---|
-| Python tests | 24 passed | Local pytest and TRACE CI |
-| API schema and Python compilation | Passed | TRACE CI; live OpenAPI 3.1, 22 paths |
-| Windows installer, actual CMD entry point | Passed | Windows PowerShell 5.1 on a hosted Windows runner |
-| Desktop folder, real Windows shortcut | Passed | COM shortcut inspected, installation path contains spaces |
-| Existing settings protected | Passed | Repeat install refused, credentials preserved |
-| Docker argument forwarding | Passed | Launcher preserves `-d` and `--build` |
-| Edge UI workflow | Passed | Import, entity selection, search, Path Finder, provenance |
-| Wide / compact layout | Passed | 1480px / 390px, no horizontal overflow; screenshots inspected |
-| Clean desktop Docker stack | Passed | PostgreSQL, evidence volume, Neo4j, Redis and OpenSearch |
-| SQL migrations | Passed | Five migrations applied |
-| Live external ingestion | Passed | GLEIF, TED and EUR-Lex / Cellar |
-| Real canonical relationship path | Passed | Path Finder and provenance endpoint on imported relationships |
-| Evidence integrity | Passed | Five raw evidence objects, every SHA-256 verified |
-| Persistence | Passed | All containers removed/recreated; identical evidence set, readable data and path |
-| Legacy S3 development stack | Passed | Separate existing Docker smoke workflow |
+* **44 tests passed**: 39 unit tests and five PostgreSQL integration workflows. These cover atomic/replayed imports, identifier separation, evidence integrity and tamper rejection, temporal graph queries, Decimal wealth calculations, conflict review, independent case publication/appeal and the append-only audit chain.
+* Ruff and Python compilation passed; generated OpenAPI includes **39 paths**.
+* Development health/readiness, portals, OpenAPI and authenticated/private API smoke passed.
+* Native production-like API uses random scoped keys and a non-superuser database runtime role. Public nginx permits only public portal assets and public read APIs. Private routes/docs/OpenAPI and public writes are denied. Production smoke passed.
+* Browser controls passed on desktop/mobile layouts with isolated API fixtures. A second browser check used the actual running API/PostgreSQL, without mocked routes: login, case listing, public portal, API docs, layout and forgetting credentials on reload passed.
+* Twelve repeated concurrent filesystem-write checks passed after fixing Windows extended-path comparison during simultaneous evidence creation.
 
-## Reproducible evidence
+One non-failing upstream Starlette warning concerns its deprecated httpx-based TestClient integration. The runtime API and HTTP client requests passed.
 
-- [Desktop stack and Windows / Edge checks](https://github.com/Vados992/TRACE-v0.1-Engineering-MVP-/actions/runs/36449924338)
-- [Python CI](https://github.com/Vados992/TRACE-v0.1-Engineering-MVP-/actions/runs/36449930750)
-- [Legacy Docker smoke](https://github.com/Vados992/TRACE-v0.1-Engineering-MVP-/actions/runs/36449930585)
-- [Changes in GitHub](https://github.com/Vados992/TRACE-v0.1-Engineering-MVP-/pull/1)
+## Actual HTTPS ingestion
 
-Browser UI checks use explicitly labeled test responses, not live company data. Live source and database checks are separate and use real endpoints. The original legacy smoke contains an isolated synthetic relationship; the new desktop smoke verifies an actual imported canonical relationship.
+These are bounded requests to publishers, not synthetic fixture results. Counts describe the requested subset and do not establish complete registry coverage. Source assertions and machine extraction do not establish wrongdoing.
 
-## Observed sample and limits
+| Source | HTTP | Entities returned | Relationships returned | Award flows | Path Finder paths |
+|---|---:|---:|---:|---:|---:|
+| GLEIF accounting parents | 200 | 2 | 2 | 0 | 2 |
+| TED published award notices | 200 | 9 | 9 | 3 | 2 |
+| Find a Tender OCDS | 200 | 8 | 6 | 0 | 2 |
+| Open Ownership UK BODS 0.4 publisher archive | 200 | 53 | 21 | 0 | 1 |
+| EUR-Lex / Cellar, subject-scoped parser | 200 | 256 | 255 | 0 | 1 |
 
-The bounded live sample produced two GLEIF accounting-parent relationships, six TED procurement relationships and 307 Cellar legal relationships. These are sample results, not a census of the registries. The TED sample created no money-flow rows; it does not validate a real banking payment or full financial coverage. Source responses can change after testing.
+Exact response evidence is stored privately with source records and hashes; local aggregate receipts are ignored under `.artifacts/`. They are not committed with personal information. Mapped BODS/OCDS assertions remain UNVERIFIED and are queried internally with `verified_only=false`. Non-active awards and closed/unknown ownership assertions were skipped with explicit warnings. TED awarded amounts are not payment receipts.
 
-No code in this task was executed on the user's Windows computer. The full container stack was tested on Linux GitHub runners, and installation plus UI were tested on a Windows runner. Docker Desktop / WSL compatibility, local port availability and resources on the user's own machine remain to be checked by running the installer.
+Open Ownership is a partial prefix of its publisher snapshot released on **2025-03-11**, not a current Companies House connection. The connector reads a bounded HTTPS byte range from the actual ZIP and complete NDJSON statements; it does not download or claim to import the entire registry.
 
-No remote server was provisioned or contacted: no server address or access configuration was supplied. The package includes a server startup script and an SSH tunnel launcher.
+Cellar follows the publisher's same-host redirect using HTTPS and a separate 64 MiB response bound. The corrected parser selects only the requested RDF subject and explicit CDM predicates, retaining direction and excluding proposed amendments and annotation vocabulary. Migration 008 preserves and retires legacy overbroad parser assertions; new extraction has a distinct parser identity. The live 62.7 MB response succeeded after this correction.
 
-Lobbying data still requires a standardized official-file import. Redis/OpenSearch are available infrastructure without an ingestion worker or populated search projection in v0.3. The system remains an engineering MVP, not a certified public production deployment or a complete live mirror of every financial and political source.
+The production-like native database also received the actual BODS snapshot subset (53 entities/21 relationships), with successful evidence Path Finder checks and no synthetic entities.
+
+## Container and CI evidence
+
+The repository includes GitHub Actions for Linux unit/integration workflows, required development containers, production-like containers/public gateway, actual-server browser checks and Windows installer/UI compatibility. Container execution results will be recorded after the GitHub run; native checks above must not be represented as Docker execution.
+
+## Remaining installation dependencies
+
+* Configured authenticated BODS/PPDS exports require the operator's actual URL, mapping, credentials and lawful access. These were not falsely reported as tested institutional integrations.
+* No real wealth declaration, tax/bank data or private-property records were supplied. Numeric reconciliation passed with clearly marked fixtures in the disposable test database; a full real-person wealth reconciliation cannot be demonstrated without authorized component evidence. Missing amounts are never synthesized.
+* Institutional production use still requires TLS, identity-provider/MFA integration, institution-specific scope/retention/access decisions, tested backup restoration, monitoring, independent audit checkpoints and security/privacy review. API keys and database/runtime boundaries are implemented, not a substitute for those controls.
+* The referenced 66-page Spanish v0.2 PDF was not available in supplied sources or retrieved conversation attachments. Existing TRACE core and the stated architecture were preserved; a page-by-page conformance claim would be unsupported.
+
+Reproduce live checks with `python scripts/live_validation.py --sources gleif ted ocds openownership eurlex`. Reproduce local smoke with `python scripts/smoke.py`; production boundary with `python scripts/production_smoke.py`. See README and DEPLOYMENT for configuration and startup commands. Run integration fixtures only in a disposable migrated database with its own evidence directory.
