@@ -1,5 +1,15 @@
 # TRACE-PIA execution evidence
 
+## Bitemporal upgrade, 2026-10-03
+
+Migration 009 and knowledge-snapshot queries supersede the earlier valid-time-only behavior. **51 tests passed locally** (39 unit / 12 PostgreSQL integration), with Ruff/compilation and **41 OpenAPI paths**. Seven additional integration scenarios cover late ingestion, backdated correction via the reviewer API, identity history, review/retraction/supersession, late observations/evidence, transaction start versus actual commit, unsupported dates and conflicts excluding later disclosure. A zero-hop query also cannot show an entity that did not yet exist at its knowledge cutoff.
+
+All five GitHub Actions jobs passed on bitemporal implementation commit `5c680d288f7ef53e0cf91ade917b73a80ebbceb7`: [unit/integration](https://github.com/Vados992/TRACE-v0.1-Engineering-MVP-/actions/runs/37105783735), [development and production containers](https://github.com/Vados992/TRACE-v0.1-Engineering-MVP-/actions/runs/37105783656), [Windows/browser](https://github.com/Vados992/TRACE-v0.1-Engineering-MVP-/actions/runs/37105783673). The final zero-hop guard was subsequently included in the same local regression suite. Native development/production smoke and a real-server browser request using the historical controls also passed.
+
+**Real-data proof:** capture current knowledge time, fetch a previously unloaded actual TED notice, then query its relationship/provenance before and after ingestion. In both native development and production-like runtime-role deployments, TED returned HTTP 200 (seven entity references / six relationships); the old provenance request returned 404, old Path Finder returned zero paths and the current query returned one path. No synthetic data or fabricated publisher timestamps were used. Aggregate receipts are private ignored `.artifacts/temporal-real*.json` files.
+
+The working databases retain original real evidence. PostgreSQL commit tracking is enabled, immutable versions/receipts are active, and early requests fail with HISTORY_UNAVAILABLE. Precise reconstruction starts at the migration baseline; lost earlier states were not invented. See [TEMPORAL.md](TEMPORAL.md) for querying, upgrades and receipt maintenance.
+
 Checked on 2026-10-03. This report describes executed checks, not production certification or an official government integration.
 
 ## Native local stack

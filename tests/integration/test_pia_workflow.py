@@ -63,6 +63,16 @@ def test_late_valid_fact_is_not_earlier_knowledge(client):
     assert len(current["paths"]) == 1
     assert current["paths"][0]["edges"][0]["known_from"]
     entity = imported["entity_ids"]["official"]
+    self_path = client.post(
+        "/api/v1/graph/path",
+        headers=auth("analyst"),
+        json={
+            "source_entity_id": entity,
+            "target_entity_id": entity,
+            "known_at": before.isoformat(),
+        },
+    )
+    assert self_path.status_code == 200 and self_path.json()["paths"] == []
     assert (
         client.get(
             f"/api/v1/entities/{entity}",

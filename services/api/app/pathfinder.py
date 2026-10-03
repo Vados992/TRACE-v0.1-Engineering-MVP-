@@ -34,7 +34,13 @@ async def find_paths(
 ) -> list[dict]:
     known_at = await resolve_known_at(known_at)
     if source_id == target_id:
-        return [{"nodes": [str(source_id)], "edges": [], "hops": 0}]
+        from .repository import get_entity
+
+        if not await get_entity(source_id, known_at):
+            return []
+        return [
+            {"nodes": [str(source_id)], "edges": [], "hops": 0, "known_at": known_at.isoformat()}
+        ]
 
     queue = deque([(source_id, [source_id], [], from_time, to_time)])
     paths: list[dict] = []
