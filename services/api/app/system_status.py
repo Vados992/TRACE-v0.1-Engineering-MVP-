@@ -17,7 +17,7 @@ async def database_check():
         async with conn.cursor() as cur:
             await cur.execute("SELECT count(*) AS count FROM schema_migrations")
             count = (await cur.fetchone())["count"]
-            if count < 10:
+            if count < 11:
                 raise RuntimeError("missing migrations")
             await cur.execute("SHOW track_commit_timestamp")
             if (await cur.fetchone())["track_commit_timestamp"] != "on":
@@ -91,6 +91,11 @@ async def readiness(full=False):
 
 
 CONNECTORS = [
+    {
+        "code": "UN_SDG",
+        "mode": "live_https",
+        "scope": "official UNSD SDG observations; complete bounded snapshots with provenance",
+    },
     {
         "code": "GLEIF",
         "mode": "live_https",
