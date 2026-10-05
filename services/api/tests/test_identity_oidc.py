@@ -3,11 +3,11 @@ import json
 import time
 
 import pytest
+from app.identity import IdentityError, OidcVerifier
+from app.settings import settings
 from Crypto.Hash import SHA256
 from Crypto.PublicKey import RSA
 from Crypto.Signature import pkcs1_15
-from app.identity import IdentityError, OidcVerifier
-from app.settings import settings
 
 
 def b64url(raw: bytes) -> str:
