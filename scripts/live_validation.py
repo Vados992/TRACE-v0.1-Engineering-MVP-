@@ -22,6 +22,7 @@ def main():
         "checked_at": datetime.now(timezone.utc).isoformat(),
         "sources": {},
         "limitations": [
+            "Cross-source comparability is never inferred automatically; it requires an explicit semantic contract.",
             "Open Ownership is the 2025-03-11 publisher snapshot, not current Companies House.",
             "Source assertions are not legal conclusions; public release requires independent review.",
         ],
@@ -54,6 +55,78 @@ def main():
                             "max_pages": 5,
                         },
                         "legal_basis": "Operator-authorized validation of official public UN SDG statistics",
+                    },
+                )
+            elif source in {"eurostat", "worldbank", "oecd", "imf", "ine_es", "ons_uk"}:
+                examples = {
+                    "eurostat": {
+                        "provider": "EUROSTAT",
+                        "query": {
+                            "dataset_code": "demo_pjan",
+                            "filters": {"geo": "PT", "sex": "T", "age": "TOTAL"},
+                            "start_period": "2023",
+                            "end_period": "2024",
+                            "max_observations": 100,
+                        },
+                    },
+                    "worldbank": {
+                        "provider": "WORLD_BANK",
+                        "query": {
+                            "indicator": "SP.POP.TOTL",
+                            "countries": ["PRT"],
+                            "start_year": 2023,
+                            "end_year": 2024,
+                            "page_size": 100,
+                            "max_pages": 2,
+                        },
+                    },
+                    "oecd": {
+                        "provider": "OECD",
+                        "query": {
+                            "agency": "OECD.TAD.ATM",
+                            "dataflow": "DSD_AGR@DF_OUTLOOK_2026_2035",
+                            "version": "1.1",
+                            "key": ".A.CPC_0112+CPC_216.BF..",
+                            "start_period": "2026",
+                            "end_period": "2026",
+                            "max_observations": 1000,
+                        },
+                    },
+                    "imf": {
+                        "provider": "IMF",
+                        "query": {
+                            "indicator": "NGDP_RPCH",
+                            "economies": ["PRT"],
+                            "periods": ["2023", "2024"],
+                        },
+                    },
+                    "ine_es": {
+                        "provider": "INE_ES",
+                        "query": {"table_id": "50902", "nult": 1, "detail": 2},
+                    },
+                    "ons_uk": {
+                        "provider": "ONS_UK",
+                        "query": {
+                            "dataset_id": "cpih01",
+                            "edition": "time-series",
+                            "version": "latest",
+                            "dimension_sets": [
+                                {
+                                    "time": "Oct-11",
+                                    "geography": "K02000001",
+                                    "aggregate": "cpih1dim1A0",
+                                }
+                            ],
+                        },
+                    },
+                }
+                response = client.post(
+                    "/api/internal/statistics/import",
+                    json={
+                        **examples[source],
+                        "legal_basis": (
+                            "Operator-authorized validation of official public statistical data"
+                        ),
                     },
                 )
             elif source == "gleif":
