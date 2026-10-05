@@ -47,6 +47,8 @@ jobs:
       - run: docker compose --env-file .env.production -f compose.production.yml config --quiet
       - run: docker compose --env-file .env.production -f compose.production.yml up --build -d --wait --wait-timeout 180
       - run: python scripts/production_smoke.py
+      - name: Production-like latency gate
+        run: python scripts/performance_smoke.py --requests 100 --concurrency 10 --p95-ms 1500
       - name: Backup and restore drill
         run: |
           mkdir -p .artifacts/backups
