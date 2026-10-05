@@ -117,3 +117,25 @@ Further documentation: [ARCHITECTURE.md](ARCHITECTURE.md), [OPERATIONS.md](OPERA
 ## Two independent time axes
 
 Migration 009 adds immutable bitemporal versions and actual PostgreSQL commit receipts. Use `known_at` independently of fact validity dates; the analyst console exposes both. Earlier snapshots exclude later ingestion, reviews, corrections and evidence. Exact history starts at migration 009 and earlier requests fail explicitly. PostgreSQL requires `track_commit_timestamp=on` (configured in Compose). See [TEMPORAL.md](TEMPORAL.md) for querying and upgrading.
+
+
+## License
+
+**Proprietary — All Rights Reserved.** Copyright © 2026 Vadym Tsinderhoz.
+
+No permission is granted to copy, modify, distribute, deploy, sublicense,
+commercialize, or otherwise reuse this repository or its contents without
+prior express written permission from Vadym Tsinderhoz, except for rights that
+cannot lawfully be excluded and the limited rights necessarily arising from
+GitHub's own Terms of Service for use of GitHub functionality.
+
+Use for AI/ML training, fine-tuning, dataset creation, embeddings, retrieval
+corpora, model evaluation, or code-generation systems is not authorized by the
+repository license except where independently permitted by mandatory law or by
+rights separately granted under GitHub's Terms of Service.
+
+See [LICENSE](LICENSE) for the complete terms.
+
+> Historical note: earlier distributions of this repository were published
+> with Apache License 2.0. Rights already validly granted for those earlier
+> distributions are not retroactively revoked by this licensing change.
