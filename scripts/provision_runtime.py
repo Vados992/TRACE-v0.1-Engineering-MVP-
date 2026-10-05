@@ -33,7 +33,14 @@ def main():
         conn.execute("GRANT SELECT ON schema_migrations TO trace_runtime")
         conn.execute("REVOKE UPDATE,DELETE,TRUNCATE ON audit_events FROM trace_runtime")
         conn.execute("REVOKE UPDATE,DELETE,TRUNCATE ON case_events FROM trace_runtime")
-        for table in ("sdg_observations", "recalculation_runs", "claim_verification_runs"):
+        for table in (
+            "sdg_observations",
+            "statistical_observations",
+            "recalculation_runs",
+            "claim_verification_runs",
+            "cross_source_verification_runs",
+            "cross_source_verification_members",
+        ):
             conn.execute(
                 sql.SQL("REVOKE UPDATE,DELETE,TRUNCATE ON {} FROM trace_runtime").format(
                     sql.Identifier(table)
