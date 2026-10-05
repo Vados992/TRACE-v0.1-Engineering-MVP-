@@ -288,6 +288,29 @@ class SdgVerificationService:
                             Jsonb(row),
                         ),
                     )
+                    await conn.execute(
+                        """INSERT INTO statistical_observations(
+                               source_record_id,observation_hash,provider_code,dataset_code,
+                               series_code,geo_code,geo_name,time_period,value_text,value_numeric,
+                               unit,frequency,measure,observation_status,dimensions,attributes,
+                               raw_observation
+                           ) VALUES (%s,%s,'UN_SDG',%s,%s,%s,%s,%s,%s,%s,NULL,NULL,NULL,NULL,%s,%s,%s)
+                           ON CONFLICT(source_record_id,observation_hash) DO NOTHING""",
+                        (
+                            source_record_id,
+                            fingerprint,
+                            row.get("series") or query.series_code,
+                            row.get("series") or query.series_code,
+                            str(row.get("geoAreaCode")) if row.get("geoAreaCode") is not None else None,
+                            row.get("geoAreaName"),
+                            str(row.get("timePeriodStart")),
+                            str(row.get("value")) if row.get("value") is not None else None,
+                            numeric,
+                            Jsonb(row.get("dimensions") or {}),
+                            Jsonb(row.get("attributes") or {}),
+                            Jsonb(row),
+                        ),
+                    )
                 await finish_ingest_job(
                     conn, job_id, "SUCCEEDED", source_record_id, artifact_id, None
                 )
