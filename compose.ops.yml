@@ -2,6 +2,9 @@ services:
   backup:
     profiles: [ops]
     image: postgres:17-alpine
+    # One-shot backup job needs write access to the host-mounted backup directory.
+    # API/runtime containers remain non-root and unchanged.
+    user: "0:0"
     environment:
       PGPASSWORD: \${POSTGRES_PASSWORD:?Set production database owner password}
     volumes:
