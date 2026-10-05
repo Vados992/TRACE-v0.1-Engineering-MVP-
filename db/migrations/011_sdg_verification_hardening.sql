@@ -92,3 +92,24 @@ CREATE INDEX IF NOT EXISTS idx_source_records_source_retrieved
     ON source_records(source_id,retrieved_at DESC);
 CREATE INDEX IF NOT EXISTS idx_import_batches_status_started
     ON import_batches(status,started_at DESC);
+
+
+-- Verification evidence and calculation receipts are append-only.
+CREATE TRIGGER sdg_observations_immutable
+    BEFORE UPDATE OR DELETE ON sdg_observations
+    FOR EACH ROW EXECUTE FUNCTION reject_audit_mutation();
+CREATE TRIGGER sdg_observations_no_truncate
+    BEFORE TRUNCATE ON sdg_observations
+    FOR EACH STATEMENT EXECUTE FUNCTION reject_audit_mutation();
+CREATE TRIGGER recalculation_runs_immutable
+    BEFORE UPDATE OR DELETE ON recalculation_runs
+    FOR EACH ROW EXECUTE FUNCTION reject_audit_mutation();
+CREATE TRIGGER recalculation_runs_no_truncate
+    BEFORE TRUNCATE ON recalculation_runs
+    FOR EACH STATEMENT EXECUTE FUNCTION reject_audit_mutation();
+CREATE TRIGGER claim_verification_runs_immutable
+    BEFORE UPDATE OR DELETE ON claim_verification_runs
+    FOR EACH ROW EXECUTE FUNCTION reject_audit_mutation();
+CREATE TRIGGER claim_verification_runs_no_truncate
+    BEFORE TRUNCATE ON claim_verification_runs
+    FOR EACH STATEMENT EXECUTE FUNCTION reject_audit_mutation();
