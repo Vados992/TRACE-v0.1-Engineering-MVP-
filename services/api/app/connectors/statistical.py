@@ -396,8 +396,13 @@ class OecdConnector(BaseConnector):
         super().__init__(base_url, timeout)
 
     async def fetch(self, query: OecdQuery) -> StatisticalSnapshot:
-        reference = f"{query.agency},{query.dataflow},{query.version}"
-        params: dict[str, str] = {"dimensionAtObservation": "AllDimensions"}
+        reference = f"{query.agency},{query.dataflow}"
+        if query.version:
+            reference += f",{query.version}"
+        params: dict[str, str] = {
+            "dimensionAtObservation": "AllDimensions",
+            "format": "csvfile",
+        }
         if query.start_period:
             params["startPeriod"] = query.start_period
         if query.end_period:
