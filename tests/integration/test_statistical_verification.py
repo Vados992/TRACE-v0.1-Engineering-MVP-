@@ -1,7 +1,6 @@
 """Integration coverage for canonical statistical storage and cross-source receipts."""
 
 import os
-from pathlib import Path
 from uuid import uuid4
 
 import psycopg
