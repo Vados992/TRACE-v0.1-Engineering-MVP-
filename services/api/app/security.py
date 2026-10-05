@@ -37,6 +37,8 @@ def authenticate(header: str | None) -> Principal | None:
 async def authenticate_request(header: str | None) -> Principal | None:
     if not header or not header.startswith("Bearer "):
         return None
+    if len(header) > 16384:
+        return None
     if settings.auth_mode in {"api_key", "hybrid"}:
         identity = authenticate(header)
         if identity is not None:
