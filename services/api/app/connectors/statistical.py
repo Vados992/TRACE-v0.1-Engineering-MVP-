@@ -74,7 +74,7 @@ class OecdQuery(BaseModel):
     agency: str = Field(min_length=1, max_length=100, pattern=r"^[A-Za-z0-9_.-]+$")
     dataflow: str = Field(min_length=1, max_length=160, pattern=r"^[A-Za-z0-9_@.-]+$")
     version: str = Field(default="", max_length=32, pattern=r"^[A-Za-z0-9_.-]*$")
-    key: str = Field(default="all", min_length=1, max_length=1000)
+    key: str = Field(default="all", min_length=1, max_length=1000, pattern=r"^[A-Za-z0-9_+.*-]+$")
     start_period: str | None = Field(default=None, max_length=32)
     end_period: str | None = Field(default=None, max_length=32)
     max_observations: int = Field(default=5000, ge=1, le=50000)
