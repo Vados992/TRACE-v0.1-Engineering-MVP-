@@ -833,7 +833,7 @@ async def statistical_import(body: StatisticalImportRequest, request: Request):
         snapshot = await StatisticalVerificationService().import_snapshot(
             body.provider, body.query, actor.subject, body.legal_basis
         )
-    except (ConnectorError, ValueError) as exc:
+    except (ConnectorError, httpx.HTTPError, ValueError) as exc:
         raise HTTPException(422, str(exc)) from exc
     return {
         "provider": snapshot.provider,
@@ -870,7 +870,7 @@ async def statistical_verify(
     actor = require(request, "analyst", "reviewer", "admin")
     try:
         return await StatisticalVerificationService().verify(body, actor.subject)
-    except (ConnectorError, ValueError) as exc:
+    except (ConnectorError, httpx.HTTPError, ValueError) as exc:
         raise HTTPException(422, str(exc)) from exc
 
 
