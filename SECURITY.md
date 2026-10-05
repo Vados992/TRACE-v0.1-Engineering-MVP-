@@ -1,6 +1,8 @@
 # Security
 
-The shipped auth implementation is a working scoped API-key adapter, not an institutional identity platform. Bearer keys are SHA-256 matched against `AUTH_KEYS_JSON`; plaintext keys are not stored in PostgreSQL or audit details. Browser keys remain in memory and disappear on reload. Production startup rejects known development keys, empty identities, wildcard hostnames and PostgreSQL superuser connections.
+TRACE supports two real authentication adapters: scoped API keys for local/controlled deployments and institutional OIDC for production identity integration. API keys are SHA-256 matched against `AUTH_KEYS_JSON`; plaintext keys are not stored in PostgreSQL or audit details. OIDC accepts signed RS256 JWTs, obtains public keys from a bounded HTTPS JWKS endpoint, validates signature, issuer, audience, expiry, issued-at/not-before time and subject, then maps external groups to exactly one TRACE role through an explicit allowlist. Raw external role names never grant TRACE privileges. Browser credentials remain in memory and disappear on reload.
+
+Production startup rejects known development keys, empty/wildcard host policies, invalid role maps, unsafe DB pool bounds and PostgreSQL superuser runtime connections.
 
 | Role | Mutations |
 |---|---|
@@ -18,10 +20,10 @@ Both `/api/v1/*` and `/api/internal/*` require authentication. Existing graph/co
 3. Use a non-superuser runtime DB role separate from the migration owner; no schema-owner credentials in the API container. Do not grant audit/history deletion rights.
 4. Enforce rate limits at the internal proxy too. Public gateway rate-limits public APIs; the app itself is not a distributed rate limiter.
 5. Configure source egress allowlists and private encrypted evidence storage. Protect raw evidence, backups and operational logs as personal-data-bearing artifacts.
-6. Use OIDC/MFA through an institution-approved identity integration before multi-institution deployment. Verify signed tokens, issuer/audience/expiry and role mapping; never trust an arbitrary identity header. This integration is not shipped as a fake OIDC validator.
+6. For institutional deployment set `AUTH_MODE=oidc`, configure the institution-approved issuer/audience/JWKS endpoint and an explicit `OIDC_ROLE_MAP_JSON`, and enforce MFA at the IdP. `hybrid` is intended only for a controlled migration window; remove API-key access after migration.
 7. Rotate role keys and DB credentials deliberately; remove old hashes and restart. Key identity changes are operationally accountable and must be recorded by the operator. Do not reuse a reviewer/publisher identity across people.
 
-Requests are body-bounded independent of Content-Length, write origins must match, hosts are allowlisted and UI output uses text nodes. Security headers restrict scripts/styles to local content, block framing and disable MIME sniffing. Evidence is downloaded as octet-stream, not rendered HTML. There is no wildcard CORS policy.
+Bearer headers and request bodies are bounded, write origins must match, hosts are allowlisted and UI output uses text nodes. Security headers restrict scripts/styles to local content, block framing and disable MIME sniffing. Evidence is downloaded as octet-stream, not rendered HTML. There is no wildcard CORS policy.
 
 The audit/history protections detect ordinary runtime modification but do not protect against a database owner, filesystem administrator or colluding institutional operators. Export and independently sign/checkpoint the audit tail off-host. WORM/object-lock custody, external signature service, SIEM, formal penetration testing and jurisdiction-specific record/tenant access controls are necessary deployment extensions, not certified features of this MVP. See [THREAT_MODEL.md](THREAT_MODEL.md) and [GOVERNANCE.md](GOVERNANCE.md).
 

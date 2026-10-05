@@ -41,6 +41,21 @@ def main():
                         "legal_basis": "Operator-authorized internal technical evaluation of public register data; no publication",
                     },
                 )
+            elif source == "unsdg":
+                response = client.post(
+                    "/api/internal/sdg/import",
+                    json={
+                        "query": {
+                            "series_code": "EG_ELC_ACCS",
+                            "area_codes": [620],
+                            "time_period_start": 2020,
+                            "time_period_end": 2025,
+                            "page_size": 100,
+                            "max_pages": 5,
+                        },
+                        "legal_basis": "Operator-authorized validation of official public UN SDG statistics",
+                    },
+                )
             elif source == "gleif":
                 response = client.post(
                     "/api/v1/relationship-intelligence/ownership/gleif/529900T8BM49AURSDO55"
@@ -69,6 +84,7 @@ def main():
                 "http_status": 200,
                 "status": data["status"],
                 "entities": len(data.get("entity_ids", [])),
+                "observations": data.get("observation_count"),
                 "relationships": len(data.get("relationship_ids", [])),
                 "money_flows": len(data.get("money_flow_ids", [])),
                 "demo": data.get("demo", False),

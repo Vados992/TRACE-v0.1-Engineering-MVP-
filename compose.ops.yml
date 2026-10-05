@@ -1,0 +1,51 @@
+services:
+  backup:
+    profiles: [ops]
+    image: postgres:17-alpine
+    # One-shot backup job needs write access to the host-mounted backup directory.
+    # API/runtime containers remain non-root and unchanged.
+    user: "0:0"
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD:?Set production database owner password}
+    volumes:
+      - evidence_data:/evidence:ro
+      - ./.artifacts/backups:/backups
+      - ./deploy/backup.sh:/backup.sh:ro
+    entrypoint: [/bin/sh, /backup.sh]
+    depends_on:
+      postgres: {condition: service_healthy}
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    cap_add: [DAC_OVERRIDE]
+    security_opt: [no-new-privileges:true]
+
+  restore-postgres:
+    profiles: [ops]
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: trace_restore
+      POSTGRES_USER: trace_restore
+      POSTGRES_PASSWORD: ${TRACE_RESTORE_PASSWORD:-trace_restore_ci_only}
+    tmpfs: [/var/lib/postgresql/data]
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U trace_restore -d trace_restore"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+
+  restore-drill:
+    profiles: [ops]
+    image: postgres:17-alpine
+    environment:
+      PGPASSWORD: ${TRACE_RESTORE_PASSWORD:-trace_restore_ci_only}
+    volumes:
+      - ./.artifacts/backups:/backups:ro
+      - ./deploy/restore-drill.sh:/restore-drill.sh:ro
+    entrypoint: [/bin/sh, /restore-drill.sh]
+    depends_on:
+      restore-postgres: {condition: service_healthy}
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]

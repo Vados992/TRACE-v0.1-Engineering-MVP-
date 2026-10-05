@@ -27,12 +27,24 @@ Public portal: http://127.0.0.1:8000/public/. Local interactive API docs: http:/
 
 The required stack is **PostgreSQL 17 + API + persistent Evidence Vault filesystem volume**. Migrations run automatically before API startup. Redis, Neo4j, external object storage and OpenSearch are not required. PostgreSQL is also the authoritative graph store and Path Finder query engine. See [DATABASES.md](DATABASES.md).
 
+## Verify published claims against official UN SDG data
+
+TRACE can now fetch complete bounded snapshots from the official United Nations Statistics Division SDG API, persist the exact snapshot in the Evidence Vault, normalize observations, and independently recalculate numeric assertions. The engine supports observation counts, distinct geography counts, sums, means and explicit baseline/comparison percent change. Qualified values such as `<0.1` are preserved as source text and are not silently coerced into numbers.
+
+Internal endpoints (intentionally excluded from the public OpenAPI surface) are:
+
+- `POST /api/internal/sdg/import` — capture a complete immutable UNSD snapshot.
+- `POST /api/internal/sdg/recalculate` — reproduce a calculation from a stored snapshot without network access.
+- `POST /api/internal/sdg/verify` — fetch official data, persist evidence, recalculate and compare an asserted value within an explicit tolerance.
+
+Every import, recalculation and verification is audit-chained. A VERIFIED result means that the stated arithmetic matches the captured official dataset and filters; it is not a legal or policy conclusion. See [docs/UN_SDG_VERIFICATION.md](docs/UN_SDG_VERIFICATION.md).
+
 ## Load real public data
 
 The default startup creates schema and source definitions only. **It does not inject synthetic people or relationships.** Live connectors perform actual HTTPS requests; unavailable sources fail visibly, without fabricated fallback data.
 
 ```sh
-python scripts/live_validation.py --sources gleif ted eurlex ocds
+python scripts/live_validation.py --sources unsdg gleif ted eurlex ocds
 # Public ownership publisher snapshot; subject to publisher availability:
 python scripts/live_validation.py --sources openownership
 ```
@@ -54,6 +66,14 @@ python scripts/serve.py
 ```
 
 `scripts/serve.py` supports `TRACE_HOST` and `TRACE_PORT`; it fixes Windows asyncio compatibility for psycopg. PostgreSQL must already be running. Do not use the public dev database account on a server.
+
+## Institutional identity and operations
+
+Local development keeps scoped API keys. Institutional deployments can set `AUTH_MODE=oidc` and configure an HTTPS issuer, audience, JWKS endpoint, subject/roles claims and an explicit external-group-to-TRACE-role map. TRACE accepts only signed RS256 JWTs, validates issuer/audience/time claims and never treats an external role name as a TRACE privilege unless it is explicitly mapped.
+
+The runtime emits bounded structured request telemetry and exposes Prometheus text at `/api/internal/metrics` to the admin role. Database pool size and statement timeout are configurable.
+
+Production backup/restore uses `compose.ops.yml`: a custom-format PostgreSQL dump plus a hash-verified Evidence Vault archive. The CI production job performs an actual restore into a disposable PostgreSQL 17 instance and checks migrations and the restored audit-chain linkage.
 
 ## Server / production-like setup
 

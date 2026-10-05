@@ -7,7 +7,7 @@ from starlette.responses import JSONResponse
 
 from . import audit
 from .db import connection
-from .security import authenticate, legacy_allowed
+from .security import authenticate_request, legacy_allowed
 from .settings import settings
 
 
@@ -24,7 +24,7 @@ class BoundaryMiddleware:
         scope.setdefault("state", {})["request_id"] = request_id
         protected = path.startswith(("/api/v1/", "/api/internal/"))
         identity = (
-            authenticate(headers.get(b"authorization", b"").decode("latin-1"))
+            await authenticate_request(headers.get(b"authorization", b"").decode("latin-1"))
             if protected
             else None
         )

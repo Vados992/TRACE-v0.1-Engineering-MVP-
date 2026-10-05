@@ -34,6 +34,7 @@ from .models import (
     ResolutionResult,
     TedSearchRequest,
 )
+from .observability import ObservabilityMiddleware
 from .path_repository import relationship_evidence
 from .pathfinder import GraphBudgetExceeded, find_paths
 from .pia_api import internal, public
@@ -73,6 +74,7 @@ app = FastAPI(
 )
 
 app.add_middleware(BoundaryMiddleware)
+app.add_middleware(ObservabilityMiddleware)
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=settings.allowed_hosts)
 app.include_router(internal)
 app.include_router(public)

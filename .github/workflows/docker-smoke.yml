@@ -47,9 +47,17 @@ jobs:
       - run: docker compose --env-file .env.production -f compose.production.yml config --quiet
       - run: docker compose --env-file .env.production -f compose.production.yml up --build -d --wait --wait-timeout 180
       - run: python scripts/production_smoke.py
+      - name: Production-like latency gate
+        run: python scripts/performance_smoke.py --requests 100 --concurrency 10 --p95-ms 1500
+      - name: Backup and restore drill
+        run: |
+          mkdir -p .artifacts/backups
+          docker compose --env-file .env.production -f compose.production.yml -f compose.ops.yml --profile ops run --rm backup
+          docker compose --env-file .env.production -f compose.production.yml -f compose.ops.yml --profile ops up -d restore-postgres
+          docker compose --env-file .env.production -f compose.production.yml -f compose.ops.yml --profile ops run --rm restore-drill
       - name: Logs on failure
         if: failure()
         run: docker compose --env-file .env.production -f compose.production.yml logs --no-color --tail=200
       - name: Remove CI containers
         if: always()
-        run: docker compose --env-file .env.production -f compose.production.yml down -v
+        run: docker compose --env-file .env.production -f compose.production.yml -f compose.ops.yml --profile ops down -v --remove-orphans
