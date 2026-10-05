@@ -83,12 +83,12 @@ def main():
                     "oecd": {
                         "provider": "OECD",
                         "query": {
-                            "agency": "OECD.TAD.ATM",
-                            "dataflow": "DSD_AGR@DF_OUTLOOK_2026_2035",
-                            "version": "1.1",
-                            "key": ".A.CPC_0112+CPC_216.BF..",
-                            "start_period": "2026",
-                            "end_period": "2026",
+                            "agency": "OECD.SDD.STES",
+                            "dataflow": "DSD_STES@DF_CLI",
+                            "version": "",
+                            "key": ".M.LI...AA...H",
+                            "start_period": "2023-02",
+                            "end_period": "2023-02",
                             "max_observations": 1000,
                         },
                     },
