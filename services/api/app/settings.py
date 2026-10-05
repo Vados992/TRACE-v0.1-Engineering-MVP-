@@ -17,11 +17,24 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     trace_env: Literal["dev", "desktop", "production", "test"] = "dev"
+    auth_mode: Literal["api_key", "oidc", "hybrid"] = "api_key"
+    oidc_issuer: str = ""
+    oidc_audience: str = ""
+    oidc_jwks_url: str = ""
+    oidc_subject_claim: str = "sub"
+    oidc_roles_claim: str = "groups"
+    oidc_role_map_json: str = "{}"
+    oidc_jwks_cache_seconds: int = 300
+    oidc_clock_skew_seconds: int = 60
     auth_keys_json: str = json.dumps(DEV_KEYS)
     allowed_hosts: list[str] = ["localhost", "127.0.0.1", "testserver", "[::1]"]
     max_request_bytes: int = 5 * 1024 * 1024
     graph_max_expansions: int = 5000
     graph_timeout_seconds: float = 10.0
+    db_pool_min_size: int = 1
+    db_pool_max_size: int = 10
+    db_pool_timeout_seconds: float = 10.0
+    db_statement_timeout_ms: int = 15000
     database_url: str = "postgresql://trace:trace_dev_only@localhost:5432/trace"
     neo4j_uri: str = "bolt://localhost:7687"
     neo4j_user: str = "neo4j"
@@ -40,6 +53,7 @@ class Settings(BaseSettings):
     ted_base_url: str = "https://api.ted.europa.eu"
     gleif_base_url: str = "https://api.gleif.org/api/v1"
     cellar_base_url: str = "https://publications.europa.eu/resource/celex"
+    unsdg_base_url: str = "https://unstats.un.org/SDGAPI"
     http_timeout_seconds: float = 30.0
     http_max_response_bytes: int = 20 * 1024 * 1024
     cellar_max_response_bytes: int = 64 * 1024 * 1024
