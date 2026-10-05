@@ -10,6 +10,7 @@ from decimal import ROUND_HALF_EVEN, Decimal, InvalidOperation
 from typing import Any, Literal
 from uuid import UUID
 
+import httpx
 from psycopg.types.json import Jsonb
 from pydantic import BaseModel, Field, model_validator
 
@@ -294,6 +295,8 @@ class StatisticalVerificationService:
 
         connector = self._connector(provider)
         fetched: StatisticalSnapshot = await connector.fetch(parsed_query)
+        if not fetched.observations:
+            raise ConnectorError(f"{provider} returned no observations for the requested query")
         normalized = [observation.to_dict() for observation in fetched.observations]
         envelope = {
             "provider": provider,
@@ -593,7 +596,7 @@ class StatisticalVerificationService:
                         "sha256": snapshot.sha256,
                     }
                 )
-            except (ConnectorError, ValueError) as exc:
+            except (ConnectorError, httpx.HTTPError, ValueError) as exc:
                 provider_results.append(
                     {
                         "provider": item.provider,
