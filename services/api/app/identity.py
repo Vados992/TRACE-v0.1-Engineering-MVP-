@@ -156,10 +156,11 @@ class OidcVerifier:
         mapping = json.loads(settings.oidc_role_map_json)
         mapped = {mapping.get(str(role)) for role in raw_roles}
         mapped.discard(None)
-        order = ["analyst", "reviewer", "publisher", "admin"]
-        role = next((candidate for candidate in reversed(order) if candidate in mapped), None)
-        if role is None:
+        if not mapped:
             raise IdentityError("OIDC identity has no mapped TRACE role")
+        if len(mapped) != 1:
+            raise IdentityError("OIDC identity maps to multiple TRACE roles; separation of duties required")
+        role = next(iter(mapped))
         return OidcIdentity(subject=subject, role=role, issuer=settings.oidc_issuer)
 
 
