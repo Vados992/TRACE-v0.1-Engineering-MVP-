@@ -16,9 +16,9 @@ from .connectors.base import ConnectorError
 from .connectors.datasets import JsonDatasetConnector, OcdsConnector, OpenOwnershipArchiveConnector
 from .db import connection
 from .object_store import EvidenceStore
+from .observability import prometheus_text
 from .pia_ingestion import import_dataset, persist_source
 from .relationship_semantics import semantic_key
-from .observability import prometheus_text
 from .sdg_verification import (
     RecalculateStoredRequest,
     SdgQuery,
