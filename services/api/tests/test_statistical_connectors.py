@@ -127,6 +127,10 @@ async def test_world_bank_requires_complete_pagination(monkeypatch, public_https
 async def test_oecd_sdmx_csv_normalizes_observations(monkeypatch, public_https):
     def responder(request):
         assert request.url.host == "sdmx.oecd.org"
+        assert request.url.path.endswith(
+            "/data/OECD.SDD.STES,DSD_STES@DF_CLI/.M.LI...AA...H"
+        )
+        assert request.url.params["format"] == "csvfile"
         return httpx.Response(
             200,
             text=(
@@ -141,10 +145,10 @@ async def test_oecd_sdmx_csv_normalizes_observations(monkeypatch, public_https):
     mock_client(monkeypatch, responder)
     snapshot = await OecdConnector("https://sdmx.oecd.org/public/rest").fetch(
         OecdQuery(
-            agency="OECD.SDD.TEST",
-            dataflow="DSD_TEST@DF_TEST",
-            version="1.0",
-            key="all",
+            agency="OECD.SDD.STES",
+            dataflow="DSD_STES@DF_CLI",
+            version="",
+            key=".M.LI...AA...H",
         )
     )
     assert len(snapshot.observations) == 2
