@@ -13,6 +13,13 @@ No connector silently substitutes synthetic data. Network failure returns an ups
 | Configured PPDS-style export | Same route, `source=ppds` | Operator-set HTTPS `PPDS_DATASET_URL`; optional Bearer credential | Actual HTTP retrieval of `trace-procurement-export/1`; institution-specific native PPDS mappings/access must be supplied |
 | EU Transparency | `POST /api/v1/relationship-intelligence/lobbying/import` | Authorized official export supplied by operator | File import contract; no automatic synchronization is claimed |
 | Wealth declarations | `POST /api/internal/wealth/reconcile` | Authorized evidence and component locators supplied by operator | No access to tax/bank/private property registries is claimed |
+| UN SDG | `POST /api/internal/statistics/import`, provider `UN_SDG` | Official UNSD SDG API | Complete bounded snapshots; existing /sdg routes remain compatible |
+| Eurostat | Same route, provider `EUROSTAT` | Official Statistics API / JSON-stat | Explicit dataset and filters; bounded observations |
+| World Bank | Same route, provider `WORLD_BANK` | Indicators API v2 | Complete pagination invariant; no API key |
+| OECD | Same route, provider `OECD` | Data Explorer SDMX REST | Explicit agency/dataflow/version/key; SDMX-CSV |
+| IMF | Same route, provider `IMF` | IMF DataMapper v2 | Official DataMapper series; not the complete IMF Data Portal catalogue |
+| Spain INE | Same route, provider `INE_ES` | INEbase JSON API | Explicit table ID; source metadata preserved |
+| UK ONS | Same route, provider `ONS_UK` | ONS API v1 | Explicit dimensions only; wildcard observations rejected |
 
 The native TED connector is the available public procurement ingestion path when an institutional PPDS service is inaccessible. The PPDS-style mapped adapter is explicitly identified as an operator mapping contract, not a fabricated standard or an official government gateway. Private registries, bank/tax systems and non-public beneficial-ownership services require real credentials, lawful authorization, contractual/interface documentation and an approved mapping. There are no fake APIs representing those systems.
 
@@ -66,3 +73,10 @@ For TED/PPDS mapped files, use `schema=trace-procurement-export/1`, `notices` wi
 * [Open Ownership UK snapshot and mapping caveats](https://bods-data.openownership.org/source/uk_version_0_4/)
 
 Validate licenses, applicable privacy/access restrictions and publisher freshness for the specific installation; technical public access is not a blanket legal authorization.
+
+
+## Cross-source statistical verification
+
+All supported statistical providers normalize into the append-only `statistical_observations` contract and can be recalculated through `POST /api/internal/statistics/recalculate`. One-provider assertions use `/api/internal/statistics/verify`; multi-provider assertions use `/api/internal/statistics/cross-verify`.
+
+TRACE never treats similarly named indicators as automatically comparable. Cross-source verification requires an explicit semantic contract and one reviewed mapping note per provider. Publisher failure produces `INSUFFICIENT`; excessive provider spread produces `SOURCE_CONFLICT`. See [docs/MULTISOURCE_STATISTICAL_VERIFICATION.md](docs/MULTISOURCE_STATISTICAL_VERIFICATION.md).
