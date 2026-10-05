@@ -20,7 +20,6 @@ from .entity_resolution.scorer import score_records
 from .ingestion import IngestionService
 from .investigation_repository import get_investigation
 from .investigations import run_investigation
-from .observability import ObservabilityMiddleware
 from .models import (
     EntityDetail,
     EntitySummary,
@@ -35,6 +34,7 @@ from .models import (
     ResolutionResult,
     TedSearchRequest,
 )
+from .observability import ObservabilityMiddleware
 from .path_repository import relationship_evidence
 from .pathfinder import GraphBudgetExceeded, find_paths
 from .pia_api import internal, public
