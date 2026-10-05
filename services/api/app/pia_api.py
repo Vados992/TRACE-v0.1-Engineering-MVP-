@@ -749,7 +749,7 @@ async def audit_list(
 async def public_status():
     return {
         "name": "TRACE-PIA",
-        "version": "0.4.0",
+        "version": "0.6.0",
         "scope": "Only explicitly reviewed public releases; relationships and signals are not legal conclusions",
     }
 
