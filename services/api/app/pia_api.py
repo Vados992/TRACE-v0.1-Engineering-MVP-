@@ -18,6 +18,13 @@ from .db import connection
 from .object_store import EvidenceStore
 from .pia_ingestion import import_dataset, persist_source
 from .relationship_semantics import semantic_key
+from .observability import prometheus_text
+from .sdg_verification import (
+    RecalculateStoredRequest,
+    SdgQuery,
+    SdgVerificationService,
+    VerificationRequest,
+)
 from .security import bearer_schema, principal, require
 from .settings import settings
 from .temporal import resolve_known_at
@@ -233,7 +240,7 @@ async def one(conn, sql, args=()):
 @internal.get("/me")
 async def me(request: Request):
     identity = principal(request)
-    return {"subject": identity.subject, "role": identity.role}
+    return {"subject": identity.subject, "role": identity.role, "auth_method": identity.auth_method}
 
 
 @internal.get("/temporal/status")
@@ -749,3 +756,62 @@ async def public_releases(limit: int = Query(25, ge=1, le=100)):
                 (limit,),
             )
         ).fetchall()
+
+
+
+class SdgImportRequest(StrictModel):
+    query: SdgQuery
+    legal_basis: str = Field(min_length=10, max_length=2000)
+
+
+@internal.post("/sdg/import", include_in_schema=False)
+async def sdg_import(body: SdgImportRequest, request: Request):
+    """Fetch and persist a complete immutable snapshot from the official UNSD SDG API."""
+    actor = require(request, "analyst", "admin")
+    try:
+        snapshot = await SdgVerificationService().import_snapshot(
+            body.query, actor.subject, body.legal_basis
+        )
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    return {
+        "source": "UN_SDG",
+        "status": "SUCCEEDED",
+        "source_record_id": snapshot.source_record_id,
+        "artifact_id": snapshot.artifact_id,
+        "observation_count": snapshot.observation_count,
+        "sha256": snapshot.sha256,
+        "external_id": snapshot.external_id,
+        "demo": False,
+    }
+
+
+@internal.post("/sdg/recalculate", include_in_schema=False)
+async def sdg_recalculate(body: RecalculateStoredRequest, request: Request):
+    """Recompute a deterministic metric from a previously captured UN SDG snapshot."""
+    actor = require(request, "analyst", "reviewer", "admin")
+    try:
+        return await SdgVerificationService().recalculate_stored(
+            body.source_record_id, body.calculation, actor.subject
+        )
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+
+
+@internal.post("/sdg/verify", include_in_schema=False)
+async def sdg_verify(body: VerificationRequest, request: Request):
+    """Fetch official data, persist it, independently recalculate, and compare an assertion."""
+    actor = require(request, "analyst", "reviewer", "admin")
+    try:
+        return await SdgVerificationService().verify(body, actor.subject)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+
+
+@internal.get("/metrics", include_in_schema=False)
+async def internal_metrics(request: Request):
+    require(request, "admin")
+    return Response(
+        content=prometheus_text(),
+        media_type="text/plain; version=0.0.4; charset=utf-8",
+    )
