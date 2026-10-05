@@ -20,6 +20,7 @@ from .entity_resolution.scorer import score_records
 from .ingestion import IngestionService
 from .investigation_repository import get_investigation
 from .investigations import run_investigation
+from .observability import ObservabilityMiddleware
 from .models import (
     EntityDetail,
     EntitySummary,
@@ -73,6 +74,7 @@ app = FastAPI(
 )
 
 app.add_middleware(BoundaryMiddleware)
+app.add_middleware(ObservabilityMiddleware)
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=settings.allowed_hosts)
 app.include_router(internal)
 app.include_router(public)
