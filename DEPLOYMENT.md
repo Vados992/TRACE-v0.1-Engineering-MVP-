@@ -22,7 +22,22 @@ Production Compose applies migrations, provisions runtime grants, then starts a 
 
 Terminate TLS at an operator-managed edge proxy to loopback 8080. Route `/public/*`, `/ui/style.css` and `/api/public/*` only. Do not route `/ui/`, `/api/internal/`, `/api/v1/`, `/docs` or database/storage interfaces publicly. Keep the analyst API on a VPN/internal network; set Host correctly and maintain an explicit host allowlist. If terminating internal TLS, either preserve same-origin semantics with a verified proxy configuration or expose the internal UI through the same HTTPS origin. Do not solve origin failures by disabling the guard.
 
+For institutional identity set `AUTH_MODE=oidc` and configure `OIDC_ISSUER`, `OIDC_AUDIENCE`, `OIDC_JWKS_URL` and `OIDC_ROLE_MAP_JSON`. Keep the IdP behind its normal MFA and lifecycle controls; TRACE verifies tokens but does not become the account authority.
+
 For managed PostgreSQL or object storage, use the variables in [DATABASES.md](DATABASES.md) and provider-approved credentials. Run migrations/provisioning as a distinct deployment job, not the runtime role. Inject BODS/PPDS tokens only when legally authorized and required. No institutional integration becomes official merely by configuring a URL.
+
+## Backup and restore drill
+
+The operational compose extension creates a PostgreSQL custom-format dump and a hash-verified Evidence Vault archive, then restores them into a disposable PostgreSQL 17 instance.
+
+```sh
+mkdir -p .artifacts/backups
+docker compose --env-file .env.production -f compose.production.yml -f compose.ops.yml --profile ops run --rm backup
+docker compose --env-file .env.production -f compose.production.yml -f compose.ops.yml --profile ops up -d restore-postgres
+docker compose --env-file .env.production -f compose.production.yml -f compose.ops.yml --profile ops run --rm restore-drill
+```
+
+The restore drill checks migration count, every DB-referenced evidence object and the complete audit hash chain. CI runs this drill against the production-like stack. Copy backup sets to institution-approved encrypted/off-site storage and apply retention/object-lock policy there; the repository does not embed a cloud vendor credential.
 
 ## Release procedure
 
