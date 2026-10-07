@@ -2,7 +2,6 @@ from datetime import datetime, timezone
 from uuid import uuid4
 
 import pytest
-
 from app.causal_state import (
     REALITY_BRANCH_ID,
     CausalLinkRequest,
