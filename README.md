@@ -4,7 +4,26 @@ Provenance-first public-integrity reference implementation, extending the existi
 
 Русская инструкция: [START_HERE_RU.md](START_HERE_RU.md). Source code and operational documentation use English.
 
-## Start locally with Docker
+
+
+## Causal state and consequence analysis
+
+TRACE v0.7 adds an append-only event/state layer above evidence, relationship
+intelligence and statistical verification. It stores explicit causal assertions
+instead of inferring causality from chronology, supports deterministic entity
+state transitions and replay, and keeps `OBSERVED`, `DERIVED` and
+`SIMULATED` material physically distinguishable.
+
+The canonical REALITY branch cannot contain simulated events. Scenario and
+counterfactual branches cannot be presented as observed reality. Every
+transition stores its patch plus before/after state hashes, so replay fails
+closed on a discontinuity.
+
+Internal authenticated endpoints cover branch creation, canonical events,
+causal links, state seeding/transitions/replay, bounded causal-graph traversal
+and downstream consequence inspection. See
+[docs/CAUSAL_STATE_CONSEQUENCE.md](docs/CAUSAL_STATE_CONSEQUENCE.md).
+\n## Start locally with Docker
 
 Requires Git, Docker Engine/Desktop with Compose v2, and Python 3.12+ for operator scripts. Ports 8000 and 5432 must be available.
 
