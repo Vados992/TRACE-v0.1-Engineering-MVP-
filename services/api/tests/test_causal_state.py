@@ -2,7 +2,6 @@ from datetime import datetime, timezone
 from uuid import uuid4
 
 import pytest
-from pydantic import ValidationError
 
 from app.causal_state import (
     REALITY_BRANCH_ID,
@@ -12,6 +11,7 @@ from app.causal_state import (
     apply_merge_patch,
     canonical_hash,
 )
+from pydantic import ValidationError
 
 
 def utc():
