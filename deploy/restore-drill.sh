@@ -10,7 +10,7 @@ mkdir -p /tmp/evidence
 tar -C /tmp/evidence -xf "$latest/evidence.tar"
 pg_restore --exit-on-error --no-owner --no-privileges -h restore-postgres -U trace_restore -d trace_restore "$latest/database.dump"
 migrations="$(psql -h restore-postgres -U trace_restore -d trace_restore -Atc 'SELECT count(*) FROM schema_migrations')"
-[ "$migrations" -ge 12 ] || { echo "restore missing migrations" >&2; exit 1; }
+[ "$migrations" -ge 13 ] || { echo "restore missing migrations" >&2; exit 1; }
 
 missing=0
 psql -h restore-postgres -U trace_restore -d trace_restore -Atc \
