@@ -644,11 +644,11 @@ def test_statistical_recalculation_endpoint_and_immutability(client):
 
 
 def test_cross_source_consensus_receipt_is_persisted(client, monkeypatch):
+    from app.settings import settings
     from app.statistical_verification import (
         ImportedStatisticalSnapshot,
         StatisticalVerificationService,
     )
-    from app.settings import settings
 
     world_bank = seed_statistical_snapshot(
         "WORLD_BANK", [("2024", "100.0")], "WB.TEST"
