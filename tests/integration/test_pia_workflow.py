@@ -743,3 +743,149 @@ def test_cross_source_consensus_receipt_is_persisted(client, monkeypatch):
         ).fetchone()[0]
     assert row[0] == "CONSENSUS_VERIFIED"
     assert members == 2
+
+
+def test_causal_state_transition_replay_and_consequence_boundary(client):
+    from app.settings import settings
+
+    _, imported = temporal_import(client)
+    entity_id = imported["entity_ids"]["official"]
+    source_record_id = imported["source_record_id"]
+    suffix = str(uuid4())
+
+    observed_1 = client.post(
+        "/api/internal/causal/events",
+        headers=auth("analyst"),
+        json={
+            "event_key": "integration-policy-start:" + suffix,
+            "event_type": "POLICY_BASELINE_RECORDED",
+            "epistemic_class": "OBSERVED",
+            "subject_entity_id": entity_id,
+            "source_record_id": source_record_id,
+            "occurred_at": "2026-01-01T00:00:00Z",
+            "payload": {"policy": "baseline"},
+            "confidence": "1",
+        },
+    )
+    assert observed_1.status_code == 200, observed_1.text
+    event_1 = observed_1.json()["id"]
+
+    observed_2 = client.post(
+        "/api/internal/causal/events",
+        headers=auth("analyst"),
+        json={
+            "event_key": "integration-policy-change:" + suffix,
+            "event_type": "POLICY_CHANGED",
+            "epistemic_class": "OBSERVED",
+            "subject_entity_id": entity_id,
+            "source_record_id": source_record_id,
+            "occurred_at": "2026-01-02T00:00:00Z",
+            "payload": {"policy": "changed"},
+            "confidence": "0.99",
+        },
+    )
+    assert observed_2.status_code == 200, observed_2.text
+    event_2 = observed_2.json()["id"]
+
+    linked = client.post(
+        "/api/internal/causal/links",
+        headers=auth("reviewer"),
+        json={
+            "cause_event_id": event_1,
+            "effect_event_id": event_2,
+            "edge_type": "ENABLES",
+            "epistemic_class": "OBSERVED",
+            "evidence_source_record_id": source_record_id,
+            "confidence": "0.85",
+            "rationale": (
+                "Disposable integration evidence explicitly asserts the ordered relationship."
+            ),
+        },
+    )
+    assert linked.status_code == 200, linked.text
+
+    seeded = client.post(
+        "/api/internal/causal/state/seed",
+        headers=auth("analyst"),
+        json={
+            "entity_id": entity_id,
+            "as_of": "2026-01-01T00:00:00Z",
+            "epistemic_class": "OBSERVED",
+            "state": {
+                "budget": 100,
+                "policy": "baseline",
+                "nested": {"risk": "low", "keep": True},
+            },
+            "source_event_id": event_1,
+            "confidence": "1",
+        },
+    )
+    assert seeded.status_code == 200, seeded.text
+    base_snapshot = seeded.json()["id"]
+
+    transitioned = client.post(
+        "/api/internal/causal/state/transition",
+        headers=auth("analyst"),
+        json={
+            "entity_id": entity_id,
+            "event_id": event_2,
+            "base_snapshot_id": base_snapshot,
+            "patch": {
+                "budget": 110,
+                "policy": "changed",
+                "nested": {"risk": "medium"},
+            },
+        },
+    )
+    assert transitioned.status_code == 200, transitioned.text
+    assert transitioned.json()["transition"]["changed_keys"] == [
+        "budget",
+        "nested",
+        "policy",
+    ]
+
+    replayed = client.post(
+        "/api/internal/causal/state/replay",
+        headers=auth("reviewer"),
+        json={"entity_id": entity_id},
+    )
+    assert replayed.status_code == 200, replayed.text
+    assert replayed.json()["events_applied"] == 1
+    assert replayed.json()["state"] == {
+        "budget": 110,
+        "policy": "changed",
+        "nested": {"risk": "medium", "keep": True},
+    }
+
+    graph = client.get(
+        f"/api/internal/causal/events/{event_1}/graph",
+        headers=auth("reviewer"),
+    )
+    assert graph.status_code == 200, graph.text
+    assert len(graph.json()["edges"]) == 1
+    assert graph.json()["edges"][0]["effect_event_id"] == event_2
+
+    consequences = client.get(
+        f"/api/internal/causal/events/{event_1}/consequences",
+        headers=auth("reviewer"),
+    )
+    assert consequences.status_code == 200, consequences.text
+    assert len(consequences.json()["state_changes"]) == 1
+    assert consequences.json()["state_changes"][0]["event_id"] == event_2
+
+    simulated_on_reality = client.post(
+        "/api/internal/causal/events",
+        headers=auth("analyst"),
+        json={
+            "event_key": "forbidden-simulation:" + suffix,
+            "event_type": "SIMULATED_POLICY",
+            "epistemic_class": "SIMULATED",
+            "occurred_at": "2026-01-03T00:00:00Z",
+            "model_ref": "integration/scenario-engine",
+        },
+    )
+    assert simulated_on_reality.status_code == 422
+
+    with psycopg.connect(settings.database_url) as conn:
+        with pytest.raises(psycopg.Error):
+            conn.execute("DELETE FROM causal_events WHERE id=%s", (event_2,))

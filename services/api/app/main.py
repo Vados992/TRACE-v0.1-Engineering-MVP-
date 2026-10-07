@@ -66,7 +66,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="TRACE-PIA API",
-    version="0.4.0",
+    version="0.7.0",
     summary="Provenance-first public-interest relationship explorer",
     lifespan=lifespan,
     docs_url=None,
@@ -139,12 +139,12 @@ async def ready():
 
 @app.get("/api/v1/system/status")
 async def system_status():
-    return {**await readiness(full=True), "connectors": CONNECTORS, "version": "0.4.0"}
+    return {**await readiness(full=True), "connectors": CONNECTORS, "version": "0.7.0"}
 
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "version": "0.4.0", "environment": settings.trace_env}
+    return {"status": "ok", "version": "0.7.0", "environment": settings.trace_env}
 
 
 @app.get("/api/v1/entities/search", response_model=list[EntitySummary])

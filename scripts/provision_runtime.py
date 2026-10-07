@@ -40,6 +40,11 @@ def main():
             "claim_verification_runs",
             "cross_source_verification_runs",
             "cross_source_verification_members",
+            "causal_branches",
+            "causal_events",
+            "causal_edges",
+            "entity_state_snapshots",
+            "state_transitions",
         ):
             conn.execute(
                 sql.SQL("REVOKE UPDATE,DELETE,TRUNCATE ON {} FROM trace_runtime").format(
