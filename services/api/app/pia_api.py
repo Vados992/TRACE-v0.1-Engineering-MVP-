@@ -12,6 +12,15 @@ from pydantic import AwareDatetime, Field, model_validator
 
 from . import audit
 from .adapters import StrictModel
+from .causal_state import (
+    BranchCreateRequest,
+    CausalLinkRequest,
+    CausalStateService,
+    EventCreateRequest,
+    ReplayRequest,
+    StateSeedRequest,
+    StateTransitionRequest,
+)
 from .connectors.base import ConnectorError
 from .connectors.datasets import JsonDatasetConnector, OcdsConnector, OpenOwnershipArchiveConnector
 from .db import connection
@@ -882,5 +891,98 @@ async def statistical_cross_verify(
     actor = require(request, "analyst", "reviewer", "admin")
     try:
         return await StatisticalVerificationService().cross_verify(body, actor.subject)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+
+
+@internal.post("/causal/branches", include_in_schema=False)
+async def causal_create_branch(body: BranchCreateRequest, request: Request):
+    """Create an immutable scenario or counterfactual branch."""
+    actor = require(request, "analyst", "admin")
+    try:
+        return await CausalStateService().create_branch(body, actor.subject)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+
+
+@internal.post("/causal/events", include_in_schema=False)
+async def causal_create_event(body: EventCreateRequest, request: Request):
+    """Create a canonical observed, derived or simulated event."""
+    actor = require(request, "analyst", "admin")
+    try:
+        return await CausalStateService().create_event(body, actor.subject)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+
+
+@internal.post("/causal/links", include_in_schema=False)
+async def causal_link_events(body: CausalLinkRequest, request: Request):
+    """Persist an explicit auditable causal/correlation assertion."""
+    actor = require(request, "analyst", "reviewer", "admin")
+    try:
+        return await CausalStateService().link_events(body, actor.subject)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+
+
+@internal.post("/causal/state/seed", include_in_schema=False)
+async def causal_seed_state(body: StateSeedRequest, request: Request):
+    """Create one immutable base state for an entity and branch."""
+    actor = require(request, "analyst", "admin")
+    try:
+        return await CausalStateService().seed_state(body, actor.subject)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+
+
+@internal.post("/causal/state/transition", include_in_schema=False)
+async def causal_apply_transition(body: StateTransitionRequest, request: Request):
+    """Apply one deterministic event patch and persist before/after hashes."""
+    actor = require(request, "analyst", "admin")
+    try:
+        return await CausalStateService().apply_transition(body, actor.subject)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+
+
+@internal.post("/causal/state/replay", include_in_schema=False)
+async def causal_replay_state(body: ReplayRequest, request: Request):
+    """Replay an entity branch and fail closed on a broken hash chain."""
+    require(request, "analyst", "reviewer", "admin")
+    try:
+        return await CausalStateService().replay(body)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+
+
+@internal.get("/causal/events/{event_id}/graph", include_in_schema=False)
+async def causal_event_graph(
+    event_id: UUID,
+    request: Request,
+    direction: Literal["downstream", "upstream"] = "downstream",
+    max_depth: int = Query(default=5, ge=1, le=8),
+):
+    """Traverse only explicit causal assertions; chronology alone creates no edge."""
+    require(request, "analyst", "reviewer", "admin")
+    try:
+        return {
+            "event_id": event_id,
+            "direction": direction,
+            "edges": await CausalStateService().graph(event_id, direction, max_depth),
+        }
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+
+
+@internal.get("/causal/events/{event_id}/consequences", include_in_schema=False)
+async def causal_event_consequences(
+    event_id: UUID,
+    request: Request,
+    max_depth: int = Query(default=5, ge=1, le=8),
+):
+    """Return downstream causal assertions and their persisted state changes."""
+    require(request, "analyst", "reviewer", "admin")
+    try:
+        return await CausalStateService().consequences(event_id, max_depth)
     except ValueError as exc:
         raise HTTPException(422, str(exc)) from exc
