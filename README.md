@@ -1,4 +1,4 @@
-# TRACE-PIA 0.4
+# TRACE-PIA 0.6
 
 Provenance-first public-integrity reference implementation, extending the existing TRACE core. It stores source evidence, temporal relationships, procurement observations, ownership assertions, wealth reconciliation and reviewed cases. **It is not production-certified and is not an official integration with public authorities.** A path or risk signal is not proof of wrongdoing.
 
@@ -39,12 +39,37 @@ Internal endpoints (intentionally excluded from the public OpenAPI surface) are:
 
 Every import, recalculation and verification is audit-chained. A VERIFIED result means that the stated arithmetic matches the captured official dataset and filters; it is not a legal or policy conclusion. See [docs/UN_SDG_VERIFICATION.md](docs/UN_SDG_VERIFICATION.md).
 
+## Cross-source statistical verification
+
+TRACE now exposes one provider-agnostic statistical verification protocol across:
+
+- United Nations SDG (`UN_SDG`)
+- Eurostat (`EUROSTAT`)
+- World Bank Indicators API v2 (`WORLD_BANK`)
+- OECD Data Explorer SDMX (`OECD`)
+- IMF DataMapper v2 (`IMF`)
+- Spain INEbase JSON API (`INE_ES`)
+- UK Office for National Statistics v1 API (`ONS_UK`)
+
+The shared internal routes are:
+
+- `POST /api/internal/statistics/import` — capture an immutable official-provider snapshot.
+- `POST /api/internal/statistics/recalculate` — reproduce deterministic arithmetic from stored evidence.
+- `POST /api/internal/statistics/verify` — verify one numeric assertion against one provider.
+- `POST /api/internal/statistics/cross-verify` — compare the same operator-declared semantic contract across two or more independent providers.
+
+Cross-source comparison is deliberately conservative. TRACE does **not** infer that similarly named indicators are equivalent. A request must supply an explicit semantic contract covering concept, unit, frequency, geography, period and transformation, plus a mapping note for every source. If a requested source fails, the cross-source result is `INSUFFICIENT`; if successful sources differ beyond the declared spread tolerance, the result is `SOURCE_CONFLICT`.
+
+All new providers write to the canonical `statistical_observations` layer while the existing UN/SDG routes remain backwards-compatible. Raw upstream responses, normalized observations, query parameters and SHA-256 evidence remain in the Evidence Vault. See [docs/MULTISOURCE_STATISTICAL_VERIFICATION.md](docs/MULTISOURCE_STATISTICAL_VERIFICATION.md).
+
 ## Load real public data
 
 The default startup creates schema and source definitions only. **It does not inject synthetic people or relationships.** Live connectors perform actual HTTPS requests; unavailable sources fail visibly, without fabricated fallback data.
 
 ```sh
-python scripts/live_validation.py --sources unsdg gleif ted eurlex ocds
+python scripts/live_validation.py --sources unsdg eurostat worldbank imf ine_es ons_uk
+python scripts/live_validation.py --sources oecd
+python scripts/live_validation.py --sources gleif ted eurlex ocds
 # Public ownership publisher snapshot; subject to publisher availability:
 python scripts/live_validation.py --sources openownership
 ```

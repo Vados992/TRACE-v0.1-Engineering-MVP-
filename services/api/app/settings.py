@@ -54,6 +54,12 @@ class Settings(BaseSettings):
     gleif_base_url: str = "https://api.gleif.org/api/v1"
     cellar_base_url: str = "https://publications.europa.eu/resource/celex"
     unsdg_base_url: str = "https://unstats.un.org/SDGAPI"
+    eurostat_base_url: str = "https://ec.europa.eu/eurostat/api/dissemination/statistics/1.0"
+    world_bank_base_url: str = "https://api.worldbank.org/v2"
+    oecd_sdmx_base_url: str = "https://sdmx.oecd.org/public/rest"
+    imf_datamapper_base_url: str = "https://www.imf.org/external/datamapper/api/v2"
+    ine_es_base_url: str = "https://servicios.ine.es/wstempus/js/EN"
+    ons_uk_base_url: str = "https://api.beta.ons.gov.uk/v1"
     http_timeout_seconds: float = 30.0
     http_max_response_bytes: int = 20 * 1024 * 1024
     cellar_max_response_bytes: int = 64 * 1024 * 1024

@@ -17,7 +17,7 @@ async def database_check():
         async with conn.cursor() as cur:
             await cur.execute("SELECT count(*) AS count FROM schema_migrations")
             count = (await cur.fetchone())["count"]
-            if count < 11:
+            if count < 12:
                 raise RuntimeError("missing migrations")
             await cur.execute("SHOW track_commit_timestamp")
             if (await cur.fetchone())["track_commit_timestamp"] != "on":
@@ -91,6 +91,36 @@ async def readiness(full=False):
 
 
 CONNECTORS = [
+    {
+        "code": "EUROSTAT",
+        "mode": "live_https",
+        "scope": "official Eurostat Statistics API observations with canonical evidence",
+    },
+    {
+        "code": "WORLD_BANK",
+        "mode": "live_https",
+        "scope": "official World Bank Indicators API v2 observations",
+    },
+    {
+        "code": "OECD",
+        "mode": "live_https",
+        "scope": "official OECD Data Explorer SDMX observations",
+    },
+    {
+        "code": "IMF",
+        "mode": "live_https",
+        "scope": "official IMF DataMapper v2 time series",
+    },
+    {
+        "code": "INE_ES",
+        "mode": "live_https",
+        "scope": "Spain INEbase official JSON API tables",
+    },
+    {
+        "code": "ONS_UK",
+        "mode": "live_https",
+        "scope": "UK ONS official v1 API explicit observations",
+    },
     {
         "code": "UN_SDG",
         "mode": "live_https",

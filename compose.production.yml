@@ -53,6 +53,12 @@ services:
       BODS_SOURCE_TOKEN: ${BODS_SOURCE_TOKEN:-}
       PPDS_SOURCE_TOKEN: ${PPDS_SOURCE_TOKEN:-}
       UNSDG_BASE_URL: ${UNSDG_BASE_URL:-https://unstats.un.org/SDGAPI}
+      EUROSTAT_BASE_URL: ${EUROSTAT_BASE_URL:-https://ec.europa.eu/eurostat/api/dissemination/statistics/1.0}
+      WORLD_BANK_BASE_URL: ${WORLD_BANK_BASE_URL:-https://api.worldbank.org/v2}
+      OECD_SDMX_BASE_URL: ${OECD_SDMX_BASE_URL:-https://sdmx.oecd.org/public/rest}
+      IMF_DATAMAPPER_BASE_URL: ${IMF_DATAMAPPER_BASE_URL:-https://www.imf.org/external/datamapper/api/v2}
+      INE_ES_BASE_URL: ${INE_ES_BASE_URL:-https://servicios.ine.es/wstempus/js/EN}
+      ONS_UK_BASE_URL: ${ONS_UK_BASE_URL:-https://api.beta.ons.gov.uk/v1}
       AUTH_MODE: ${AUTH_MODE:-api_key}
       OIDC_ISSUER: ${OIDC_ISSUER:-}
       OIDC_AUDIENCE: ${OIDC_AUDIENCE:-}

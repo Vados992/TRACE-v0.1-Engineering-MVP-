@@ -27,6 +27,13 @@ from .sdg_verification import (
 )
 from .security import bearer_schema, principal, require
 from .settings import settings
+from .statistical_verification import (
+    CrossSourceVerificationRequest,
+    StatisticalImportRequest,
+    StatisticalRecalculateRequest,
+    StatisticalVerificationRequest,
+    StatisticalVerificationService,
+)
 from .temporal import resolve_known_at
 from .wealth import ENGINE_VERSION, WealthInput, reconcile
 
@@ -742,7 +749,7 @@ async def audit_list(
 async def public_status():
     return {
         "name": "TRACE-PIA",
-        "version": "0.4.0",
+        "version": "0.6.0",
         "scope": "Only explicitly reviewed public releases; relationships and signals are not legal conclusions",
     }
 
@@ -815,3 +822,65 @@ async def internal_metrics(request: Request):
         content=prometheus_text(),
         media_type="text/plain; version=0.0.4; charset=utf-8",
     )
+
+
+
+@internal.post("/statistics/import", include_in_schema=False)
+async def statistical_import(body: StatisticalImportRequest, request: Request):
+    """Capture a bounded immutable snapshot from an official statistical provider."""
+    actor = require(request, "analyst", "admin")
+    try:
+        snapshot = await StatisticalVerificationService().import_snapshot(
+            body.provider, body.query, actor.subject, body.legal_basis
+        )
+    except (ConnectorError, httpx.HTTPError, ValueError) as exc:
+        raise HTTPException(422, str(exc)) from exc
+    return {
+        "provider": snapshot.provider,
+        "dataset_code": snapshot.dataset_code,
+        "status": "SUCCEEDED",
+        "source_record_id": snapshot.source_record_id,
+        "artifact_id": snapshot.artifact_id,
+        "observation_count": snapshot.observation_count,
+        "sha256": snapshot.sha256,
+        "external_id": snapshot.external_id,
+        "demo": False,
+    }
+
+
+@internal.post("/statistics/recalculate", include_in_schema=False)
+async def statistical_recalculate(
+    body: StatisticalRecalculateRequest, request: Request
+):
+    """Reproduce arithmetic from a stored official statistical snapshot."""
+    actor = require(request, "analyst", "reviewer", "admin")
+    try:
+        return await StatisticalVerificationService().recalculate_stored(
+            body.source_record_id, body.calculation, actor.subject
+        )
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+
+
+@internal.post("/statistics/verify", include_in_schema=False)
+async def statistical_verify(
+    body: StatisticalVerificationRequest, request: Request
+):
+    """Capture official evidence, recalculate, and compare one numeric assertion."""
+    actor = require(request, "analyst", "reviewer", "admin")
+    try:
+        return await StatisticalVerificationService().verify(body, actor.subject)
+    except (ConnectorError, httpx.HTTPError, ValueError) as exc:
+        raise HTTPException(422, str(exc)) from exc
+
+
+@internal.post("/statistics/cross-verify", include_in_schema=False)
+async def statistical_cross_verify(
+    body: CrossSourceVerificationRequest, request: Request
+):
+    """Compare an operator-declared equivalent claim across independent providers."""
+    actor = require(request, "analyst", "reviewer", "admin")
+    try:
+        return await StatisticalVerificationService().cross_verify(body, actor.subject)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
