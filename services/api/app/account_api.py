@@ -14,9 +14,9 @@ from pydantic import Field
 
 from . import audit
 from .account_connectors import EvidenceXClient, EvidenceXUnavailable
+from .account_engine import ProjectAssessmentInput, Strict, assess
 from .account_portugal import PortugalBaseClient, PortugalSourceError
 from .account_portugal_store import persist_portugal_snapshot
-from .account_engine import ProjectAssessmentInput, Strict, assess
 from .db import connection
 from .security import require
 from .settings import settings
