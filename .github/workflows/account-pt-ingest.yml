@@ -1,0 +1,29 @@
+name: Portugal BASE official data capture
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '23 5 * * 1'
+permissions:
+  contents: read
+jobs:
+  ingest:
+    # Requires a separately provisioned/test-migrated PostgreSQL database.
+    if: ${{ vars.TRACE_ACCOUNT_PT_SYNC_ENABLED == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      PYTHONPATH: services/api
+      TRACE_ENV: production
+      DATABASE_URL: ${{ secrets.TRACE_ACCOUNT_DATABASE_URL }}
+      AUTH_MODE: oidc
+      OIDC_ISSUER: ${{ vars.TRACE_OIDC_ISSUER }}
+      OIDC_AUDIENCE: ${{ vars.TRACE_OIDC_AUDIENCE }}
+      OIDC_JWKS_URL: ${{ vars.TRACE_OIDC_JWKS_URL }}
+      OIDC_ROLE_MAP_JSON: ${{ vars.TRACE_OIDC_ROLE_MAP_JSON }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements.lock
+      - run: python scripts/accountability_portugal_sync.py

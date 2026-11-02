@@ -1,54 +1,85 @@
-# TRACE-ACCOUNT v0.1 — Engineering and Validation
-Copyright (c) 2026 Vadym Tsinderhoz. All rights reserved.
+# TRACE-ACCOUNT v0.1 — engineering, provenance and validation
+
+Copyright © 2026 Vadym Tsinderhoz. All rights reserved.
 
 ## Implemented
-- Deterministic financial screening with Decimal, source references, period-scoped data and reproducible SHA-256 inputs.
-- Budget, contract award, payment, operational cost, operating revenue and capital investment are distinct measures. Missing data are never treated as zero.
-- Read-only EVIDENCE-X source metadata adapter. Metadata imported from another service remains unverified.
-- TRACE source-record foreign-key checks and protected internal review API.
-- PostgreSQL append-only assessments, independent reviewer, idempotent submissions, TRACE chained audit events.
-- No corruption scores, automated blame assignment, public release or sanctions.
 
-## Activation in existing TRACE stack
-The branch mounts the router in services/api/app/main.py under /api/internal/accountability. Run the existing migration runner against a BACKED-UP STAGING PostgreSQL database:
+- Deterministic Pydantic/Decimal financial screening with source-linked, period-scoped inputs.
+- Distinct measures for **approved budget**, **revised budget**, **awards**, **payments**, **operating cost**, **operating revenue**, **investment** and **EU funding**. Missing fields remain unknown.
+- No corruption scores, crime classifiers, accusations, public disclosure or automatic sanctions.
+- Read-only metadata mapping from EVIDENCE-X `GET /sources` rows; imported metadata is **not** upgraded to independently verified status.
+- TRACE source-record ID foreign-key checks on submission. A permissioned read-only HTTPS metadata endpoint can call EVIDENCE-X GET /sources with a scoped x-evidence-key; no cross-database writes.
+- Protected TRACE endpoints `/api/internal/accountability/preview`, `/submit`, `/assessments/{uuid}`, `/assessments/{uuid}/review`.
+- PostgreSQL append-only assessments and reviews, idempotent submit by canonical SHA-256, independent reviewer, TRACE chained audit events.
 
-    python scripts/migrate.py
+## Install in the existing TRACE repo
 
-Start TRACE with its existing settings. Never use demo keys in production. Endpoints are internal and omitted from public OpenAPI pending an access and governance review.
+Add the supplied files in their relative locations. In `services/api/app/main.py`, add:
 
-Protected endpoints:
-- POST /api/internal/accountability/preview (analyst/reviewer/admin)
-- POST /api/internal/accountability/submit (analyst/admin)
-- GET /api/internal/accountability/assessments/{uuid} (reviewer/admin)
-- POST /api/internal/accountability/assessments/{uuid}/review (independent reviewer)
+```python
+from .account_api import router as accountability_router
+```
+
+and after `app.include_router(public)` add:
+
+```python
+# Internal-only v0.1; public release requires separate legal and evidence review.
+app.include_router(accountability_router, include_in_schema=False)
+```
+
+Install existing TRACE requirements and apply `python scripts/migrate.py` against a **backed-up staging database**, then run the existing TRACE stack. No existing migration is modified. Ensure `TRACE_ENV=production` has real credential hashes/OIDC.
+
+### EVIDENCE-X connector configuration
+
+Add ACCOUNT_EVIDENCE_X_BASE_URL (HTTPS origin only) and ACCOUNT_EVIDENCE_X_KEY (a scoped service key) to your secret manager or .env. The connector is disabled when these values are absent. GET /api/internal/accountability/evidence-x/sources is restricted to reviewer/admin. This endpoint checks transport and schema, but cannot verify the raw evidence bytes without a separate provenance capture.
+
+### Protected API
+
+Send `Authorization: Bearer <TRACE scoped credential>` and JSON shaped like `fixtures/accountability/kastoria_eca2014.json`. An `analyst` may preview/submit; a different `reviewer` may review; reviewer/admin may fetch the submitted assessment. Review judgments do not publish any person-level finding.
 
 ## Reproducible tests
-    PYTHONPATH=services/api python -m pytest -q services/api/tests/test_accountability.py
-    PYTHONPATH=services/api python scripts/accountability_case.py fixtures/accountability/kastoria_eca2014.json
 
-Database-dependent suite (disposable migrated TRACE DB with scoped test credentials):
+```bash
+PYTHONPATH=services/api python -m pytest -q services/api/tests/test_accountability.py
+PYTHONPATH=services/api python scripts/accountability_case.py fixtures/accountability/kastoria_eca2014.json
+# PostgreSQL TEST database with migrations and development credentials only:
+TRACE_INTEGRATION=1 PYTHONPATH=services/api python -m pytest -q -m integration services/api/tests/test_accountability_integration.py
+```
 
-    TRACE_INTEGRATION=1 PYTHONPATH=services/api python -m pytest -q -m integration services/api/tests/test_accountability_integration.py
+### Real published audit case, not live API test
 
-## Published audit case (historical, manually transcribed)
-European Court of Auditors, Special Report 21/2014, Box 5 (printed page 27):
+European Court of Auditors, Special Report 21/2014, Box 5 (printed p.27):
 https://www.eca.europa.eu/lists/ecadocuments/sr14_21/qjab14021enc.pdf
 
-2005–2012 figures: airport operating costs EUR 7,700,000 and revenues EUR 176,000; runway extension investment EUR 16,500,000 including EU funds EUR 5,600,000. Screening computes an operating gap of EUR 7,524,000. This is NOT a finding of illegal spending, personal liability, or public fiscal damage. Budget variance and decisions are NOT calculable from this evidence alone.
+Historical figures (2005–2012): airport operating costs **€7,700,000**, revenues **€176,000**; investment in runway extension **€16,500,000**, including EU funds **€5,600,000**. Screening engine calculates an operating gap of **€7,524,000**. No budget baseline, actual paid investment total, documented decision chain or independently reviewed original evidence is available in this fixture, so the module **does not** compute budget variance or individual accountability.
 
-This example is not a live API ingestion or independently authenticated capture. Each evidence reference is explicitly marked unverified in the fixture.
+**Evidence caveat:** This fixture was manually transcribed from the official published audit; the software did not live-fetch, cryptographically capture or independently verify the PDF. This is a replay of published numbers, not a certified case investigation.
 
-## Outstanding work
-1. Staging PostgreSQL migrations and authenticated API integration test; full TRACE CI.
-2. Permissioned service-to-service verification for EVIDENCE-X metadata; currently an offline schema bridge.
-3. Licensed BASE/TED/OC4IDS official-data connectors with field-level provenance, validation, source terms and rate limits.
-4. Temporal revisions, linkage resolution, independent legal audit and GDPR access/correction governance.
-5. Formal security review before any production release.
+## Remaining before deployment
 
-Note: GitHub Actions execution may be blocked by the GitHub account billing/spending limit.
+1. Run PostgreSQL migrations, API integration smoke and full existing TRACE test suites in controlled staging.
+2. Check mapped EVIDENCE-X source IDs with permissioned service-to-service API; currently metadata-only bridge.
+3. Build authorized BASE/TED/OC4IDS connectors with source-specific schema mapping, licensing, rate limits and provenance capture. BASE Portugal API may require access token.
+4. Implement temporal versioning for updated public records, project/contract identity resolution, independent legal review and GDPR rights workflow.
+5. Refresh OpenAPI reference when endpoints graduate from private experimental status; expose no new public routes by default.
 
-## EVIDENCE-X HTTPS integration
-Set ACCOUNT_EVIDENCE_X_BASE_URL (HTTPS origin, no path, userinfo or port) and ACCOUNT_EVIDENCE_X_KEY (scoped service credential stored as a secret). Both are disabled by default. An independent reviewer or admin can call GET /api/internal/accountability/evidence-x/sources?limit=25. The read-only client uses the existing EVIDENCE-X /sources endpoint and x-evidence-key authorization header; no redirects and no proxy environment trust. HTTP errors or unexpected response formats fail closed. Metadata remain unverified without checking underlying payload bytes. In v0.1 the endpoint lists the latest 100 source records at most, not complete archive coverage.
+## Known operational constraint
 
-## Second official historical test
-European Court of Auditors, Special Report 21/2014, paragraph 47: Cordoba airport 2013 passenger forecast 179,000 versus 6,955 actual. The reproducible offline sample fixtures/accountability/cordoba_eca2014.json gives 3.89% target realization and a review signal. Figures are manually transcribed from published material, not fetched through a live API.
+GitHub Actions may be blocked by repository/account billing limits. Local `pytest` success is not evidence of a successful GitHub-hosted CI run.
+
+
+## v0.2 add-on: Portugal BASE/IMPIC official data collector (branch-only)
+
+- `account_portugal.py`: fixed official dados.gov.pt dataset metadata discovery, allowlisted HTTPS resource hostnames, redirects disabled, strict byte and record caps, JSON/CSV raw record capture. This is not a generic URL-fetch API.
+- `account_portugal_store.py`: append-only source snapshots plus raw records and SHA-256, linked to existing TRACE `source_records`, with atomic hash-chain audit; no implied payment/contract settlement equivalence.
+- `db/migrations/012a_accountability_portugal.sql`: staging PostgreSQL migration; **run after a backup** via existing `scripts/migrate.py`.
+- `GET /api/internal/accountability/portugal/catalog`: discovers source catalog metadata (protected).
+- `POST /api/internal/accountability/portugal/refresh`: captures catalog and first explicitly allowlisted bounded source JSON/CSV resource if available (analyst/admin). If resource is unavailable, the API truthfully reports catalog-only status.
+- `GET /api/internal/accountability/portugal/snapshots/{id}/verify`: recomputes original stored byte digest (reviewer/admin).
+- `scripts/accountability_portugal_sync.py`: CLI for scheduled isolated ingests, requiring explicit `DATABASE_URL` (does not use demo database).
+- `.github/workflows/account-pt-ingest.yml`: scheduled/manual job **disabled by default**, requires `TRACE_ACCOUNT_PT_SYNC_ENABLED=true`, `TRACE_ACCOUNT_DATABASE_URL` secret and operational runner/network/billing. Never auto-runs on an unconfigured account.
+- `tests/integration/test_account_portugal_postgres.py`: migrated real PostgreSQL API workflow with mock HTTP government and EVIDENCE-X services; proves TRACE source refs + app submission and independent review **only when run with PostgreSQL**. External services in this test are mocked.
+
+Primary public source: https://www.base.gov.pt/Base4/pt/documentacao/formas-de-obter-dados-sobre-os-contratos-publicos/ ; Portuguese dataset metadata: https://dados.gov.pt/pt/datasets/contratos-publicos-portal-base-impic-contratos-de-2012-a-2026/ . IMPIC's **direct** higher-frequency API requires authorized token, and is not claimed to be integrated. Publisher-controlled files can be too large or corrupt; the collector will refuse and report unsafe/unavailable content, not fabricate success. Claims of live feed coverage require actual runner logs and database evidence.
+
+**Operational limitations:** live database migrations and production EVIDENCE-X service-to-service auth were not executed in the local isolated environment. Data source metadata was externally reviewed; there is no claim that official bytes were retrieved locally. No public disclosure or automatic legal verdict.
