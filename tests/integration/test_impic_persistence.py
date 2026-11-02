@@ -1,11 +1,11 @@
 """Real PostgreSQL persistence test. CI needs migrated disposable PostgreSQL."""
 import httpx
 import pytest
-from psycopg.rows import dict_row
-from psycopg_pool import AsyncConnectionPool
 
 from app.account_impic import DATASET_URL, fetch_snapshot, persist_snapshot
 from app.settings import settings
+from psycopg.rows import dict_row
+from psycopg_pool import AsyncConnectionPool
 
 
 @pytest.mark.integration
