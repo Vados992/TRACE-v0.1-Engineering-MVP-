@@ -9,10 +9,9 @@ from uuid import uuid4
 
 import httpx
 import pytest
-from fastapi.testclient import TestClient
-
 from app.account_portugal import CATALOG_URL, DATASET_SLUG
 from app.main import app
+from fastapi.testclient import TestClient
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -20,8 +19,8 @@ ROOT = Path(__file__).resolve().parents[2]
 @pytest.mark.integration
 def test_capture_to_trace_account_and_evidence_x_bridge(monkeypatch):
     from app import account_api
-    from app.account_portugal import PortugalBaseClient
     from app.account_connectors import EvidenceXClient
+    from app.account_portugal import PortugalBaseClient
 
     resource = 'https://www.base.gov.pt/resources/contracts-2026.json'
     catalog = {'slug': DATASET_SLUG, 'resources': [
