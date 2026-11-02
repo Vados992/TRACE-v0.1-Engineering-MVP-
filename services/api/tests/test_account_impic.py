@@ -21,7 +21,6 @@ from app.account_impic import (
     verified_url,
 )
 
-
 RESOURCE = "https://dados.gov.pt/downloads/contratos2026.json"
 RECORD = {"idContrato": "1001", "objectoContrato": "Construção de edifício público",
           "precoContratual": "123.456,78"}
