@@ -1,8 +1,11 @@
 """Real PostgreSQL persistence test. CI needs migrated disposable PostgreSQL."""
 import httpx
 import pytest
+from psycopg.rows import dict_row
+from psycopg_pool import AsyncConnectionPool
+
 from app.account_impic import DATASET_URL, fetch_snapshot, persist_snapshot
-from app.db import pool
+from app.settings import settings
 
 
 @pytest.mark.integration
@@ -23,10 +26,12 @@ async def test_impic_transaction_replay(tmp_path):
         raise AssertionError(str(request.url))
 
     snapshot = await fetch_snapshot(2026, transport=httpx.MockTransport(handler))
-    await pool.open()
-    try:
-        await pool.wait(timeout=15)
-        async with pool.connection() as conn:
+    # Isolate the test connection pool from the TRACE application lifespan.
+    async with AsyncConnectionPool(
+        conninfo=settings.database_url, min_size=1, max_size=2,
+        kwargs={"row_factory": dict_row},
+    ) as test_pool:
+        async with test_pool.connection() as conn:
             first = await persist_snapshot(conn, snapshot, tmp_path)
             second = await persist_snapshot(conn, snapshot, tmp_path)
             assert first["snapshot_id"] == second["snapshot_id"]
@@ -38,5 +43,4 @@ async def test_impic_transaction_replay(tmp_path):
             )).fetchone()
             assert result["n"] == 1
             assert str(result["price"]) == "3000.00"
-    finally:
-        await pool.close()
+
