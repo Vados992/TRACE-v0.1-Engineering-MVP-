@@ -7,7 +7,6 @@ from decimal import Decimal
 
 import httpx
 import pytest
-
 from app.account_connectors import EvidenceXClient
 from app.account_engine import Observation, ProjectAssessmentInput, assess
 from app.account_impic import (
