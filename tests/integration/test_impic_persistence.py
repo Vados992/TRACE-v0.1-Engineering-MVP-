@@ -1,7 +1,6 @@
 """Real PostgreSQL persistence test. CI needs migrated disposable PostgreSQL."""
 import httpx
 import pytest
-
 from app.account_impic import DATASET_URL, fetch_snapshot, persist_snapshot
 from app.db import pool
 
