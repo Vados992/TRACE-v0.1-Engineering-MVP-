@@ -1,7 +1,6 @@
 """Mock-HTTP integration tests for permissioned EVIDENCE-X source bridge."""
 import httpx
 import pytest
-
 from app.account_connectors import EvidenceXClient, EvidenceXUnavailable
 
 
