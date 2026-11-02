@@ -1,6 +1,7 @@
 """PostgreSQL/API integration test; execute only on migrated disposable TRACE DB."""
 import json
 from pathlib import Path
+from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
@@ -15,6 +16,7 @@ def test_accountability_submission_replay_and_independent_review():
     sample = json.loads(
         (ROOT / "fixtures/accountability/kastoria_eca2014.json").read_text()
     )
+    sample["project_id"] += "-" + uuid4().hex
     with TestClient(app) as client:
         missing = client.post("/api/internal/accountability/preview", json=sample)
         assert missing.status_code == 401

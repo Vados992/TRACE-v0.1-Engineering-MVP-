@@ -103,3 +103,13 @@ def test_output_below_target():
     result = assess(obj)
     assert result.metrics["target_realization_percent"] == "15.00"
     assert "LOW_TARGET_REALIZATION" in {s.code for s in result.signals}
+
+
+def test_real_eca_cordoba_forecast_2013():
+    """Real published forecast-vs-observed data, not a live source connection."""
+    fixture = ROOT / "fixtures/accountability/cordoba_eca2014.json"
+    source = ProjectAssessmentInput.model_validate(json.loads(fixture.read_text()))
+    result = assess(source)
+    assert result.metrics["target_realization_percent"] == "3.89"
+    assert "LOW_TARGET_REALIZATION" in {s.code for s in result.signals}
+    assert result.metrics["budget_variance_amount"] is None

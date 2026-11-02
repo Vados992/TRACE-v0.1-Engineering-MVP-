@@ -46,3 +46,9 @@ This example is not a live API ingestion or independently authenticated capture.
 5. Formal security review before any production release.
 
 Note: GitHub Actions execution may be blocked by the GitHub account billing/spending limit.
+
+## EVIDENCE-X HTTPS integration
+Set ACCOUNT_EVIDENCE_X_BASE_URL (HTTPS origin, no path, userinfo or port) and ACCOUNT_EVIDENCE_X_KEY (scoped service credential stored as a secret). Both are disabled by default. An independent reviewer or admin can call GET /api/internal/accountability/evidence-x/sources?limit=25. The read-only client uses the existing EVIDENCE-X /sources endpoint and x-evidence-key authorization header; no redirects and no proxy environment trust. HTTP errors or unexpected response formats fail closed. Metadata remain unverified without checking underlying payload bytes. In v0.1 the endpoint lists the latest 100 source records at most, not complete archive coverage.
+
+## Second official historical test
+European Court of Auditors, Special Report 21/2014, paragraph 47: Cordoba airport 2013 passenger forecast 179,000 versus 6,955 actual. The reproducible offline sample fixtures/accountability/cordoba_eca2014.json gives 3.89% target realization and a review signal. Figures are manually transcribed from published material, not fetched through a live API.

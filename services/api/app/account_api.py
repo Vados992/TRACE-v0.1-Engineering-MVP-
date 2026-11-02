@@ -8,14 +8,16 @@ Copyright (c) 2026 Vadym Tsinderhoz. All rights reserved.
 from typing import Literal
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Query, Request
 from psycopg.types.json import Jsonb
 from pydantic import Field
 
 from . import audit
+from .account_connectors import EvidenceXClient, EvidenceXUnavailable
 from .account_engine import ProjectAssessmentInput, Strict, assess
 from .db import connection
 from .security import require
+from .settings import settings
 
 router = APIRouter(prefix="/api/internal/accountability", tags=["TRACE-ACCOUNT"])
 
@@ -23,6 +25,17 @@ router = APIRouter(prefix="/api/internal/accountability", tags=["TRACE-ACCOUNT"]
 class ReviewInput(Strict):
     verdict: Literal["NEEDS_INFORMATION", "DISPUTED", "READY_FOR_EXTERNAL_AUDIT"]
     note: str = Field(min_length=20, max_length=3000)
+
+
+@router.get("/evidence-x/sources")
+async def evidence_x_sources(request: Request, limit: int = Query(default=25, ge=1, le=100)):
+    require(request, "reviewer", "admin")
+    try:
+        client = EvidenceXClient(settings.account_evidence_x_base_url,
+                                 settings.account_evidence_x_key.get_secret_value())
+        return await client.list_sources(limit)
+    except EvidenceXUnavailable as exc:
+        raise HTTPException(503, "EVIDENCE-X integration is unavailable or invalid") from exc
 
 
 @router.post("/preview")
