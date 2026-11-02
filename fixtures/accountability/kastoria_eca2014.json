@@ -1,0 +1,46 @@
+{
+  "project_id": "ECA-2014-KASTORIA-RUNWAY",
+  "title": "Kastoria airport runway extension: ECA retrospective screening",
+  "jurisdiction": "GR",
+  "source_system": "manual",
+  "evidence": [
+    {
+      "id": "eca-2014-box5",
+      "url": "https://www.eca.europa.eu/lists/ecadocuments/sr14_21/qjab14021enc.pdf",
+      "locator": "Special Report 21/2014, printed p.27, Box 5; audit observations paragraphs 24, 44",
+      "declared_type": "official",
+      "verification": "unverified"
+    }
+  ],
+  "observations": [
+    {
+      "kind": "investment_amount",
+      "value": "16500000",
+      "unit": "EUR",
+      "evidence_id": "eca-2014-box5"
+    },
+    {
+      "kind": "eu_funding",
+      "value": "5600000",
+      "unit": "EUR",
+      "evidence_id": "eca-2014-box5"
+    },
+    {
+      "kind": "operating_cost",
+      "value": "7700000",
+      "unit": "EUR",
+      "period_start": "2005-01-01",
+      "period_end": "2012-12-31",
+      "evidence_id": "eca-2014-box5"
+    },
+    {
+      "kind": "operating_revenue",
+      "value": "176000",
+      "unit": "EUR",
+      "period_start": "2005-01-01",
+      "period_end": "2012-12-31",
+      "evidence_id": "eca-2014-box5"
+    }
+  ],
+  "decisions": []
+}

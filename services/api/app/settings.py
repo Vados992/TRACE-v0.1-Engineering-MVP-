@@ -2,6 +2,7 @@ import hashlib
 import json
 from typing import Literal
 
+from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 DEV_KEYS = {
@@ -49,6 +50,9 @@ class Settings(BaseSettings):
     evidence_directory: str = "/var/lib/trace/evidence"
     redis_url: str = "redis://redis:6379/0"
     opensearch_url: str = "http://opensearch:9200"
+
+    account_evidence_x_base_url: str = ""
+    account_evidence_x_key: SecretStr = SecretStr("")
 
     ted_base_url: str = "https://api.ted.europa.eu"
     gleif_base_url: str = "https://api.gleif.org/api/v1"

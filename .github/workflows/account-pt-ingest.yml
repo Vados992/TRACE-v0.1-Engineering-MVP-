@@ -1,0 +1,69 @@
+name: Portugal BASE official data capture
+on:
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: '23 5 * * 1'
+permissions:
+  contents: read
+jobs:
+  ingest:
+    # Requires a separately provisioned/test-migrated PostgreSQL database.
+    if: ${{ vars.TRACE_ACCOUNT_PT_SYNC_ENABLED == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      PYTHONPATH: services/api
+      TRACE_ENV: production
+      DATABASE_URL: ${{ secrets.TRACE_ACCOUNT_DATABASE_URL }}
+      AUTH_MODE: oidc
+      OIDC_ISSUER: ${{ vars.TRACE_OIDC_ISSUER }}
+      OIDC_AUDIENCE: ${{ vars.TRACE_OIDC_AUDIENCE }}
+      OIDC_JWKS_URL: ${{ vars.TRACE_OIDC_JWKS_URL }}
+      OIDC_ROLE_MAP_JSON: ${{ vars.TRACE_OIDC_ROLE_MAP_JSON }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements.lock
+      - run: python scripts/accountability_portugal_sync.py
+
+  official-catalog-probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    continue-on-error: true
+    env:
+      PYTHONPATH: services/api
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements.lock
+      - name: Live official IMPIC catalog read (no database writes)
+        run: |
+          python - <<'PY'
+          import asyncio
+          import json
+          from pathlib import Path
+          from app.account_portugal import PortugalBaseClient
+          async def main():
+              snap, catalog, options = await PortugalBaseClient().catalog()
+              org = catalog.get('organization') or {}
+              publisher = str(org.get('name', '')) if isinstance(org, dict) else ''
+              if 'IMPIC' not in publisher.upper():
+                  raise SystemExit('Official dataset publisher not independently confirmed')
+              report = {'dataset': snap.dataset_slug, 'sha256': snap.sha256,
+                        'publisher': publisher, 'resource_count': len(options),
+                        'status': 'live_catalog_metadata_only_no_contracts_ingested'}
+              Path('pt_catalog_probe.json').write_text(json.dumps(report, indent=2))
+              print(json.dumps(report, indent=2))
+          asyncio.run(main())
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: portugal-base-catalog-probe
+          path: pt_catalog_probe.json
+          if-no-files-found: ignore

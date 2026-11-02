@@ -1,0 +1,34 @@
+{
+  "project_id": "ECA-2014-CORDOBA-DEMAND",
+  "title": "Cordoba airport forecast versus actual passengers in 2013 (ECA audit)",
+  "jurisdiction": "ES",
+  "source_system": "manual",
+  "evidence": [
+    {
+      "id": "eca-2014-demand",
+      "url": "https://www.eca.europa.eu/lists/ecadocuments/sr14_21/qjab14021enc.pdf",
+      "locator": "Special Report 21/2014, printed p.27, paragraph 47; forecast 179000, actual 6955 in 2013",
+      "declared_type": "official",
+      "verification": "unverified"
+    }
+  ],
+  "observations": [
+    {
+      "kind": "target_output",
+      "value": "179000",
+      "unit": "PASSENGERS",
+      "period_start": "2013-01-01",
+      "period_end": "2013-12-31",
+      "evidence_id": "eca-2014-demand"
+    },
+    {
+      "kind": "actual_output",
+      "value": "6955",
+      "unit": "PASSENGERS",
+      "period_start": "2013-01-01",
+      "period_end": "2013-12-31",
+      "evidence_id": "eca-2014-demand"
+    }
+  ],
+  "decisions": []
+}

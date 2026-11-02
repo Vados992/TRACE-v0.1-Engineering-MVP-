@@ -10,6 +10,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import AwareDatetime
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
+from .account_api import router as accountability_router
 from .boundaries import BoundaryMiddleware
 from .connectors.base import ConnectorError
 from .connectors.eurlex import EurLexConnector
@@ -78,6 +79,8 @@ app.add_middleware(ObservabilityMiddleware)
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=settings.allowed_hosts)
 app.include_router(internal)
 app.include_router(public)
+# Internal-only experimental module; no public exposure or auto-publication.
+app.include_router(accountability_router, include_in_schema=False)
 
 
 @app.middleware("http")
