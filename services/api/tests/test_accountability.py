@@ -4,10 +4,14 @@ from datetime import date
 from pathlib import Path
 
 import pytest
+from app.account_engine import (
+    EvidenceRef,
+    Observation,
+    ProjectAssessmentInput,
+    assess,
+    from_evidence_x_source,
+)
 from pydantic import ValidationError
-
-from app.account_engine import (EvidenceRef, Observation, ProjectAssessmentInput,
-                                assess, from_evidence_x_source)
 
 ROOT = Path(__file__).resolve().parents[3]
 
