@@ -20,9 +20,9 @@ async def main():
     args = parser.parse_args()
     if not os.environ.get('DATABASE_URL'):
         raise SystemExit('DATABASE_URL must be explicitly provided; no development fallback permitted')
-    from app.db import pool
     from app.account_portugal import PortugalBaseClient, PortugalSourceError
     from app.account_portugal_store import persist_portugal_snapshot
+    from app.db import pool
     await pool.open()
     try:
         client = PortugalBaseClient()
