@@ -4,11 +4,17 @@ import json
 
 import httpx
 import pytest
-
 from app.account_portugal import (
-    CATALOG_URL, DATASET_SLUG, MAX_RESOURCE_BYTES,
-    PortugalBaseClient, PortugalSourceError, decode_records, resource_options,
-    row_fingerprint, source_key, validate_official_url,
+    CATALOG_URL,
+    DATASET_SLUG,
+    MAX_RESOURCE_BYTES,
+    PortugalBaseClient,
+    PortugalSourceError,
+    decode_records,
+    resource_options,
+    row_fingerprint,
+    source_key,
+    validate_official_url,
 )
 
 RESOURCE_URL = 'https://www.base.gov.pt/resources/impic-contracts-2026.json'
