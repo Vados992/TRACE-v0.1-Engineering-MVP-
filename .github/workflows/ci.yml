@@ -54,4 +54,9 @@ jobs:
           exit 1
       - run: python scripts/migrate.py
       - run: python scripts/migrate.py
-      - run: pytest -q tests/integration
+      - name: Test each integration module with a fresh async DB pool
+        run: |
+          set -e
+          for module in tests/integration/test_*.py; do
+            pytest -q "$module"
+          done
