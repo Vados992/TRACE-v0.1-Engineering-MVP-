@@ -2,6 +2,7 @@
 
 Copyright (c) 2026 Vadym Tsinderhoz. All rights reserved.
 """
+import json
 from urllib.parse import urlsplit
 
 import httpx
@@ -15,9 +16,13 @@ class EvidenceXUnavailable(Exception):
 
 class EvidenceXClient:
     def __init__(self, base_url: str, api_key: str, transport: httpx.AsyncBaseTransport | None = None):
-        u = urlsplit(base_url)
-        if (u.scheme != "https" or not u.hostname or u.username or u.password
-                or u.port or u.path.strip("/") or u.query or u.fragment):
+        try:
+            u = urlsplit(base_url)
+            invalid = (u.scheme != "https" or not u.hostname or u.username or u.password
+                       or u.port or u.path.strip("/") or u.query or u.fragment)
+        except ValueError as exc:
+            raise EvidenceXUnavailable("EVIDENCE-X HTTPS service URL is missing or invalid") from exc
+        if invalid:
             raise EvidenceXUnavailable("EVIDENCE-X HTTPS service URL is missing or invalid")
         if not api_key or len(api_key) > 2048:
             raise EvidenceXUnavailable("EVIDENCE-X service credential is not configured")
@@ -33,16 +38,23 @@ class EvidenceXClient:
                 timeout=httpx.Timeout(10.0), transport=self._transport,
                 follow_redirects=False, trust_env=False,
             ) as client:
-                response = await client.get(
-                    self.base_url + "/sources",
+                async with client.stream(
+                    "GET", self.base_url + "/sources", params={"limit": limit},
                     headers={"x-evidence-key": self._api_key, "accept": "application/json"},
-                )
-                response.raise_for_status()
-                if len(response.content) > 1_000_000:
-                    raise EvidenceXUnavailable("EVIDENCE-X source list exceeds size limit")
-                payload = response.json()
+                ) as response:
+                    response.raise_for_status()
+                    body = bytearray()
+                    # Bound decompressed bytes while reading, including chunked
+                    # responses and dishonest/missing Content-Length headers.
+                    async for chunk in response.aiter_bytes(chunk_size=65536):
+                        if len(body) + len(chunk) > 1_000_000:
+                            raise EvidenceXUnavailable("EVIDENCE-X source list exceeds size limit")
+                        body.extend(chunk)
+                payload = json.loads(body)
                 if not isinstance(payload, list):
                     raise EvidenceXUnavailable("EVIDENCE-X returned unexpected source format")
+                if any(not isinstance(row, dict) for row in payload):
+                    raise EvidenceXUnavailable("EVIDENCE-X returned invalid source metadata")
                 return [from_evidence_x_source(row, "EVIDENCE-X /sources " + str(row.get("id", "")))
                         for row in payload[:limit]]
         except (httpx.HTTPError, ValueError, TypeError, KeyError) as exc:
