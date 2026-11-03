@@ -38,7 +38,8 @@ def test_capture_to_trace_account_and_evidence_x_bridge(monkeypatch):
     monkeypatch.setattr(account_api, 'PortugalBaseClient', lambda: PortugalBaseClient(transport=pt_transport))
 
     def ex_server(req):
-        if str(req.url) == 'https://evidence.example/sources':
+        if req.url.path == '/sources':
+            assert req.url.params['limit'] == '25'
             assert req.headers.get('x-evidence-key') == 'scoped-test-key'
             return httpx.Response(200, json=[
                 {'id': 'ex001', 'source_url': 'https://www.eca.europa.eu/official.pdf',
